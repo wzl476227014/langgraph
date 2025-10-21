@@ -1,0 +1,99 @@
+# 流式输出配置
+# Stream Output Configuration
+
+# 全局配置
+global:
+  # 是否启用流式输出
+  enable_stream: true
+  
+  # 打字机效果速度（秒/字符）
+  typewriter_speed: 0.005
+  
+  # 句子结束停顿时间（秒）
+  sentence_pause: 0.1
+  
+  # 是否在交互模式中启用
+  enable_in_interactive: true
+  
+  # 是否在命令行模式中启用
+  enable_in_cli: false
+
+# Agent特定配置
+agents:
+  PlanAgent:
+    enable: true
+    speed: 0.003
+    show_thinking: true
+    thinking_message: "正在制定计划"
+    
+  ReactAgent:
+    enable: true
+    speed: 0.002
+    show_thinking: true
+    thinking_message: "正在执行步骤"
+    show_progress: true
+    
+  ReportAgent:
+    enable: true
+    speed: 0.001
+    show_thinking: true
+    thinking_message: "正在生成报告"
+    
+  IntegrationAgent:
+    enable: true
+    speed: 0.002
+    show_thinking: true
+    thinking_message: "正在整合内容"
+    
+  ReflectAgent:
+    enable: false  # 评估时不需要流式输出
+    speed: 0.005
+    show_thinking: false
+
+# 输出样式配置
+styles:
+  # 颜色配置
+  colors:
+    agent_name: "purple"
+    thinking: "yellow"
+    executing: "white"
+    success: "green"
+    error: "red"
+    warning: "yellow"
+    info: "blue"
+    
+  # 前缀格式
+  prefixes:
+    agent: "[{agent_name}]"
+    task: "{task_type}:"
+    thinking: "💭"
+    executing: "⚡"
+    success: "✅"
+    error: "❌"
+    warning: "⚠️"
+    info: "ℹ️"
+
+# 性能优化
+performance:
+  # 缓冲区大小
+  buffer_size: 1024
+  
+  # 最大输出长度（字符）
+  max_output_length: 10000
+  
+  # 是否启用异步输出
+  async_output: false
+  
+  # 中断快捷键
+  interrupt_key: "ctrl+c"
+
+# 调试选项
+debug:
+  # 是否显示原始响应
+  show_raw_response: false
+  
+  # 是否记录流式输出到日志
+  log_stream_output: false
+  
+  # 是否显示字符计数
+  show_char_count: false

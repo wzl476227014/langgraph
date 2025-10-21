@@ -1,0 +1,123 @@
+# Multi-Agent Report Generation System Configuration
+
+# LLM Configuration
+#llm:
+#  model: "deepseek-reasoner"
+#  api_key: "sk-c4a3c922f26f46fdb9ed1b7bcd4bb3d1"
+#  base_url: "https://api.deepseek.com"
+#  temperature: 1.0
+#  max_tokens: 4000
+
+#llm:
+#  model: "glm-4.6"
+#  api_key: "ac1bebbae83b4977a30675e1ea32a724.dfO83E0gDSyQR2bL"
+#  base_url: "https://open.bigmodel.cn/api/paas/v4/"
+#  temperature: 0.7
+#  max_tokens: 4000
+
+llm:
+  model: "qwen3-30b-a3b-instruct-2507"
+  api_key: "sk-393f0629ff644d1e8f920a123ec8e130"
+  base_url: "https://dashscope.aliyuncs.com/compatible-mode/v1"
+  temperature: 0.7
+  max_tokens: 4000
+  enable_thinking: false
+
+# Agent Configuration
+agents:
+  plan:
+    name: "Plan Agent"
+    description: "负责分析用户需求并制定报告生成计划"
+    max_planning_steps: 10
+    
+  react:
+    name: "React Agent"
+    description: "负责逐步执行计划中的每个步骤"
+    max_execution_attempts: 3
+    
+  reflect:
+    name: "Reflect Agent"
+    description: "负责评估执行结果质量并提供改进建议"
+    quality_threshold: 0.8
+    
+  memory:
+    name: "Memory Agent"
+    description: "负责管理流程中的信息和状态"
+    max_memory_size: 1000
+    
+  report:
+    name: "Report Agent"
+    description: "负责生成最终的HTML格式报告"
+    output_format: "html"
+    
+  report_integration:
+    name: "Report Integration Agent"
+    description: "负责将多个章节整合成完整报告"
+    output_format: "html"
+    enable_toc: true
+
+# Workflow Configuration
+workflow:
+  enable_user_interaction: false
+  save_intermediate_results: true
+  log_level: "INFO"
+  timeout_seconds: 300
+
+# Output Configuration
+output:
+  reports_directory: "examples/sample_reports"
+  template_directory: "src/templates"
+  default_template: "report.html"
+
+# Tool Configuration
+tools:
+  web_search:
+    enabled: true
+    max_results: 5
+    
+  data_processing:
+    enabled: true
+    
+  content_generation:
+    enabled: true
+    max_length: 2000
+    
+  file_upload:
+    enabled: true
+    max_file_size: 10485760  # 10MB in bytes
+    allowed_types: ["pdf", "xlsx", "xls"]
+
+  # 优化后的幻灯片生成工具
+  slide_analyzer:
+    enabled: true
+    llm_model: "qwen-plus-2025-09-11"
+    max_content_length: 15000
+
+  slide_outliner:
+    enabled: true
+    llm_model: "qwen-plus-2025-09-11"
+    default_slide_count: 20
+
+  slide_generator:
+    enabled: true
+    llm_model: "qwen-plus-2025-09-11"
+    max_retries: 2
+
+  parallel_slide_manager:
+    enabled: true
+    max_workers: 5
+    batch_size: 3
+    batch_delay_seconds: 2
+    upload_directory: "uploads"
+    temp_directory: "temp"
+    
+  pdf_processing:
+    enabled: true
+    extract_images: false
+    ocr_enabled: true
+    max_pages: 100
+    
+  excel_processing:
+    enabled: true
+    max_rows: 10000
+    max_sheets: 50
