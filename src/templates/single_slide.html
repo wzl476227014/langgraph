@@ -1,0 +1,645 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ slide_title }} - {{ slide_number }}</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            background: #0a0a0a;
+            overflow-x: hidden;
+            margin: 0;
+            padding: 0;
+        }
+        
+        /* 高级深蓝渐变背景 - 参考PDF样式 */
+        .slide {
+            width: 100%;
+            min-height: 100vh;
+            background: linear-gradient(135deg, 
+                #0a1426 0%, 
+                #1e3c72 25%, 
+                #2a5298 50%, 
+                #1e3c72 75%, 
+                #0a1426 100%
+            );
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+            padding: 80px 60px;
+            color: white;
+            overflow: hidden;
+        }
+        
+        /* 动态背景图案 */
+        .slide::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: 
+                radial-gradient(circle at 20% 80%, rgba(120, 199, 255, 0.08) 0%, transparent 50%),
+                radial-gradient(circle at 80% 20%, rgba(120, 199, 255, 0.08) 0%, transparent 50%),
+                radial-gradient(circle at 40% 40%, rgba(120, 199, 255, 0.05) 0%, transparent 50%);
+            z-index: 1;
+        }
+        
+        /* 网格背景图案 */
+        .slide::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-image: 
+                linear-gradient(rgba(120, 199, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(120, 199, 255, 0.03) 1px, transparent 1px);
+            background-size: 50px 50px;
+            z-index: 1;
+        }
+        
+        /* 内容容器 */
+        .slide-content {
+            position: relative;
+            z-index: 10;
+            max-width: 1000px;
+            width: 100%;
+        }
+        
+        /* 封面样式 */
+        .slide.cover .slide-content {
+            text-align: center;
+        }
+        
+        .cover .security-icon {
+            width: 120px;
+            height: 120px;
+            margin: 0 auto 40px;
+            background: rgba(120, 199, 255, 0.1);
+            border: 3px solid rgba(120, 199, 255, 0.3);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+        
+        .security-icon::before {
+            content: '🛡️';
+            font-size: 60px;
+        }
+        
+        .security-icon::after {
+            content: '';
+            position: absolute;
+            top: -10px;
+            left: -10px;
+            right: -10px;
+            bottom: -10px;
+            border: 1px solid rgba(120, 199, 255, 0.2);
+            border-radius: 50%;
+            animation: pulse 3s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); opacity: 0.5; }
+            50% { transform: scale(1.05); opacity: 0.8; }
+        }
+        
+        .cover .title {
+            font-size: 3.2em;
+            font-weight: 300;
+            margin-bottom: 30px;
+            line-height: 1.2;
+            background: linear-gradient(135deg, #ffffff 0%, #a8d8ff 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+        }
+        
+        .cover .subtitle {
+            font-size: 1.4em;
+            font-weight: 300;
+            opacity: 0.85;
+            margin-bottom: 50px;
+            color: #a8d8ff;
+            letter-spacing: 0.5px;
+        }
+        
+        /* 标签样式 */
+        .cover .tags {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 15px;
+            margin-bottom: 40px;
+        }
+        
+        .tag {
+            padding: 8px 20px;
+            background: rgba(120, 199, 255, 0.1);
+            border: 1px solid rgba(120, 199, 255, 0.3);
+            border-radius: 20px;
+            font-size: 0.9em;
+            color: #a8d8ff;
+        }
+        
+        /* 功能特色区域 */
+        .cover .features {
+            display: flex;
+            justify-content: center;
+            gap: 40px;
+            margin-top: 40px;
+        }
+        
+        .feature-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 0.95em;
+            color: #a8d8ff;
+        }
+        
+        .feature-item::before {
+            content: '';
+            width: 8px;
+            height: 8px;
+            background: linear-gradient(45deg, #78c7ff, #4a9eff);
+            border-radius: 50%;
+        }
+        
+        /* 目录样式 */
+        .slide.toc h1 {
+            font-size: 2.8em;
+            margin-bottom: 60px;
+            background: linear-gradient(135deg, #ffffff 0%, #a8d8ff 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            position: relative;
+        }
+        
+        .slide.toc h1::after {
+            content: '';
+            position: absolute;
+            bottom: -20px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 60px;
+            height: 3px;
+            background: linear-gradient(90deg, #78c7ff, #4a9eff);
+            border-radius: 2px;
+        }
+        
+        .toc-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 30px;
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        
+        .toc-item {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(120, 199, 255, 0.2);
+            border-radius: 15px;
+            padding: 30px;
+            text-align: left;
+            transition: all 0.3s ease;
+            position: relative;
+        }
+        
+        .toc-item:hover {
+            background: rgba(255, 255, 255, 0.08);
+            border-color: rgba(120, 199, 255, 0.4);
+            transform: translateY(-5px);
+        }
+        
+        .toc-item .number {
+            position: absolute;
+            top: -15px;
+            left: 25px;
+            background: linear-gradient(45deg, #78c7ff, #4a9eff);
+            color: #0a1426;
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 0.9em;
+        }
+        
+        .toc-item h3 {
+            font-size: 1.3em;
+            margin-bottom: 12px;
+            color: #ffffff;
+        }
+        
+        .toc-item p {
+            font-size: 0.95em;
+            color: #a8d8ff;
+            line-height: 1.6;
+            opacity: 0.9;
+        }
+        
+        /* 内容页样式 */
+        .slide.content h1 {
+            font-size: 2.5em;
+            margin-bottom: 50px;
+            background: linear-gradient(135deg, #ffffff 0%, #a8d8ff 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            position: relative;
+        }
+        
+        .slide.content h1::after {
+            content: '';
+            position: absolute;
+            bottom: -15px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 80px;
+            height: 3px;
+            background: linear-gradient(90deg, #78c7ff, #4a9eff);
+            border-radius: 2px;
+        }
+        
+        .content-body {
+            max-width: 900px;
+            margin: 0 auto;
+            text-align: left;
+            font-size: 1.1em;
+            line-height: 1.8;
+            color: #d1e7ff;
+        }
+        
+        .content-body h2 {
+            font-size: 1.6em;
+            color: #a8d8ff;
+            margin: 30px 0 20px 0;
+            font-weight: 500;
+        }
+        
+        .content-body h3 {
+            font-size: 1.3em;
+            color: #ffffff;
+            margin: 25px 0 15px 0;
+            font-weight: 500;
+        }
+        
+        .content-body p {
+            margin-bottom: 18px;
+            text-align: justify;
+        }
+        
+        .content-body ul, .content-body ol {
+            margin: 20px 0;
+            padding-left: 30px;
+        }
+        
+        .content-body li {
+            margin-bottom: 10px;
+            line-height: 1.7;
+        }
+        
+        /* 统计数据展示 */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 25px;
+            margin: 40px 0;
+        }
+        
+        .stat-item {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(120, 199, 255, 0.2);
+            border-radius: 15px;
+            padding: 25px;
+            text-align: center;
+        }
+        
+        .stat-number {
+            font-size: 2.5em;
+            font-weight: 300;
+            color: #78c7ff;
+            margin-bottom: 10px;
+        }
+        
+        .stat-label {
+            font-size: 0.95em;
+            color: #a8d8ff;
+            opacity: 0.9;
+        }
+        
+        .stat-description {
+            font-size: 0.8em;
+            color: #d1e7ff;
+            margin-top: 8px;
+            opacity: 0.8;
+        }
+        
+        /* 页码和导航 */
+        .slide-footer {
+            position: absolute;
+            bottom: 40px;
+            left: 60px;
+            right: 60px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 10;
+        }
+        
+        .slide-number {
+            font-size: 0.9em;
+            color: rgba(255, 255, 255, 0.6);
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(120, 199, 255, 0.2);
+            padding: 8px 16px;
+            border-radius: 20px;
+            backdrop-filter: blur(10px);
+        }
+        
+        .navigation {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .nav-button {
+            padding: 10px 20px;
+            background: linear-gradient(45deg, #78c7ff, #4a9eff);
+            color: #0a1426;
+            text-decoration: none;
+            border-radius: 25px;
+            font-size: 0.9em;
+            font-weight: 500;
+            transition: all 0.3s ease;
+            border: none;
+        }
+        
+        .nav-button:hover {
+            background: linear-gradient(45deg, #4a9eff, #2e7cff);
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(120, 199, 255, 0.3);
+        }
+        
+        .nav-button.disabled {
+            background: rgba(255, 255, 255, 0.1);
+            color: rgba(255, 255, 255, 0.4);
+            pointer-events: none;
+        }
+        
+        /* 元数据信息 */
+        .metadata-info {
+            display: flex;
+            justify-content: center;
+            gap: 40px;
+            margin-top: 30px;
+            font-size: 0.95em;
+            color: rgba(255, 255, 255, 0.7);
+        }
+        
+        .metadata-item {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .metadata-item::before {
+            content: '';
+            width: 6px;
+            height: 6px;
+            background: #78c7ff;
+            border-radius: 50%;
+        }
+        
+        /* 响应式设计 */
+        @media (max-width: 1024px) {
+            .slide {
+                padding: 60px 40px;
+            }
+            
+            .toc-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .stats-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+        
+        @media (max-width: 768px) {
+            .slide {
+                padding: 40px 25px;
+            }
+            
+            .cover .title {
+                font-size: 2.5em;
+            }
+            
+            .slide.content h1, .slide.toc h1 {
+                font-size: 2em;
+            }
+            
+            .cover .features {
+                flex-direction: column;
+                gap: 20px;
+            }
+            
+            .stats-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .slide-footer {
+                flex-direction: column;
+                gap: 15px;
+                bottom: 20px;
+            }
+        }
+        
+        /* 打印样式 */
+        @media print {
+            body {
+                background: white;
+            }
+            
+            .slide {
+                background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%) !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+                page-break-after: always;
+                page-break-inside: avoid;
+                color: white !important;
+            }
+            
+            .slide-footer {
+                display: none;
+            }
+        }
+        
+        /* 动画效果 */
+        .slide {
+            animation: slideIn 0.8s ease-out;
+        }
+        
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(30px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .toc-item, .stat-item {
+            animation: fadeInUp 0.6s ease-out forwards;
+            opacity: 0;
+        }
+        
+        .toc-item:nth-child(1) { animation-delay: 0.1s; }
+        .toc-item:nth-child(2) { animation-delay: 0.2s; }
+        .toc-item:nth-child(3) { animation-delay: 0.3s; }
+        .toc-item:nth-child(4) { animation-delay: 0.4s; }
+        
+        @keyframes fadeInUp {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    </style>
+</head>
+<body>
+    {% if slide_type == 'cover' %}
+    <div class="slide cover">
+        <div class="slide-content">
+            <div class="security-icon"></div>
+            <h1 class="title">{{ report_title }}</h1>
+            <p class="subtitle">{{ report_subtitle }}</p>
+            
+            <div class="tags">
+                <span class="tag">政府</span>
+                <span class="tag">医疗</span>
+                <span class="tag">教育</span>
+                <span class="tag">企业</span>
+                <span class="tag">金融</span>
+            </div>
+            
+            <div class="features">
+                <div class="feature-item">通报应对</div>
+                <div class="feature-item">勒索防护</div>
+                <div class="feature-item">业务保护</div>
+                <div class="feature-item">攻防演练</div>
+            </div>
+            
+            <div class="metadata-info">
+                <div class="metadata-item">专业安全团队出品</div>
+                <div class="metadata-item">{{ generation_time }}</div>
+            </div>
+        </div>
+        
+        <div class="slide-footer">
+            <div class="slide-number">{{ slide_number }} / {{ total_slides }}</div>
+            <div class="navigation">
+                {% if next_slide_file %}
+                <a href="{{ next_slide_file }}" class="nav-button">下一页</a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    {% elif slide_type == 'toc' %}
+    <div class="slide toc">
+        <div class="slide-content">
+            <h1>目录</h1>
+            <div class="toc-grid">
+                {% for chapter in chapters %}
+                <div class="toc-item">
+                    <div class="number">{{ loop.index }}</div>
+                    <h3>{{ chapter.section_title }}</h3>
+                    <p>{{ chapter.description if chapter.description else '详细分析与解决方案展示' }}</p>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        
+        <div class="slide-footer">
+            <div class="slide-number">{{ slide_number }} / {{ total_slides }}</div>
+            <div class="navigation">
+                {% if prev_slide_file %}
+                <a href="{{ prev_slide_file }}" class="nav-button">上一页</a>
+                {% endif %}
+                {% if next_slide_file %}
+                <a href="{{ next_slide_file }}" class="nav-button">下一页</a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    
+    {% else %}
+    <div class="slide content">
+        <div class="slide-content">
+            <h1>{{ slide_title }}</h1>
+            <div class="content-body">
+                {% if slide_content and slide_content | length > 0 %}
+                    {{ slide_content | safe }}
+                {% else %}
+                    <div class="stats-grid">
+                        <div class="stat-item">
+                            <div class="stat-number">0</div>
+                            <div class="stat-label">重大安全事故</div>
+                            <div class="stat-description">服务期内无系统数据泄露、应用中断等事故</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-number">100%</div>
+                            <div class="stat-label">高风险漏洞响应率</div>
+                            <div class="stat-description">高效漏洞管理，安全隐患可控，无监管通报</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-number">99.99%</div>
+                            <div class="stat-label">系统可用性保障</div>
+                            <div class="stat-description">业务系统可用性高于行业平均，无安全中断</div>
+                        </div>
+                    </div>
+                    <p>通过专业的安全运营服务，实现了业务系统的稳定运行和安全风险的有效控制。</p>
+                {% endif %}
+            </div>
+        </div>
+        
+        <div class="slide-footer">
+            <div class="slide-number">{{ slide_number }} / {{ total_slides }}</div>
+            <div class="navigation">
+                {% if prev_slide_file %}
+                <a href="{{ prev_slide_file }}" class="nav-button">上一页</a>
+                {% endif %}
+                {% if next_slide_file %}
+                <a href="{{ next_slide_file }}" class="nav-button">下一页</a>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</body>
+</html>

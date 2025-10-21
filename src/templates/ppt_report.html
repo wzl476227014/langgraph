@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ report_title }}</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            background: #f5f5f5;
+            overflow-x: hidden;
+        }
+        
+        /* PPT 幻灯片样式 */
+        .slide-container {
+            position: relative;
+            width: 100%;
+            min-height: 100vh;
+        }
+        
+        .slide {
+            width: 100%;
+            min-height: 100vh;
+            max-height: 100vh;
+            background: white;
+            margin-bottom: 2px;
+            box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+            padding: 60px;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-start;
+            page-break-after: always;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        /* 封面幻灯片 */
+        .slide.cover {
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: white;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+        }
+        
+        .cover .title {
+            font-size: 3.5em;
+            font-weight: 300;
+            margin-bottom: 30px;
+            line-height: 1.2;
+        }
+        
+        .cover .subtitle {
+            font-size: 1.6em;
+            font-weight: 300;
+            opacity: 0.9;
+            margin-bottom: 40px;
+        }
+        
+        .cover .metadata {
+            font-size: 1.1em;
+            opacity: 0.8;
+        }
+        
+        /* 目录幻灯片 */
+        .slide.toc {
+            justify-content: flex-start;
+        }
+        
+        .slide.toc h1 {
+            font-size: 2.5em;
+            color: #1e3c72;
+            margin-bottom: 40px;
+            text-align: center;
+            border-bottom: 3px solid #2a5298;
+            padding-bottom: 20px;
+        }
+        
+        .toc-list {
+            list-style: none;
+            padding: 0;
+        }
+        
+        .toc-list li {
+            font-size: 1.4em;
+            line-height: 2;
+            padding: 15px 0;
+            border-bottom: 1px solid #e1e4e8;
+            display: flex;
+            align-items: center;
+        }
+        
+        .toc-list li::before {
+            content: '';
+            width: 8px;
+            height: 8px;
+            background: #2a5298;
+            border-radius: 50%;
+            margin-right: 20px;
+        }
+        
+        /* 内容幻灯片 */
+        .slide.content h1 {
+            font-size: 2.2em;
+            color: #1e3c72;
+            margin-bottom: 40px;
+            padding-bottom: 15px;
+            border-bottom: 3px solid #2a5298;
+        }
+        
+        .slide.content h2 {
+            font-size: 1.8em;
+            color: #2a5298;
+            margin: 30px 0 20px 0;
+        }
+        
+        .slide.content h3 {
+            font-size: 1.4em;
+            color: #2c3e50;
+            margin: 25px 0 15px 0;
+        }
+        
+        .slide-content {
+            flex: 1;
+            overflow: hidden;
+            font-size: 1.1em;
+            line-height: 1.8;
+            color: #4a5568;
+        }
+        
+        .slide-content p {
+            margin-bottom: 20px;
+            text-align: justify;
+        }
+        
+        .slide-content ul, .slide-content ol {
+            margin: 20px 0;
+            padding-left: 30px;
+        }
+        
+        .slide-content li {
+            margin-bottom: 12px;
+            line-height: 1.7;
+        }
+        
+        /* 页码 */
+        .slide-number {
+            position: absolute;
+            bottom: 30px;
+            right: 30px;
+            font-size: 0.9em;
+            color: #666;
+            background: rgba(255, 255, 255, 0.8);
+            padding: 5px 10px;
+            border-radius: 15px;
+        }
+        
+        .slide.cover .slide-number {
+            color: rgba(255, 255, 255, 0.8);
+            background: rgba(255, 255, 255, 0.1);
+        }
+        
+        /* 内容分页样式 */
+        .content-page {
+            max-height: calc(100vh - 200px);
+            overflow: hidden;
+        }
+        
+        /* 响应式设计 */
+        @media (max-width: 768px) {
+            .slide {
+                padding: 30px 20px;
+                min-height: 100vh;
+            }
+            
+            .cover .title {
+                font-size: 2.5em;
+            }
+            
+            .slide.content h1 {
+                font-size: 1.8em;
+            }
+            
+            .toc-list li {
+                font-size: 1.2em;
+            }
+        }
+        
+        /* 打印样式 */
+        @media print {
+            body {
+                background: white;
+            }
+            
+            .slide {
+                box-shadow: none;
+                margin-bottom: 0;
+                page-break-after: always;
+                page-break-inside: avoid;
+            }
+            
+            .slide-number {
+                display: none;
+            }
+        }
+        
+        /* 动画效果 */
+        .slide {
+            animation: slideIn 0.5s ease-in-out;
+        }
+        
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="slide-container">
+        <!-- 封面幻灯片 -->
+        <div class="slide cover">
+            <h1 class="title">{{ report_title }}</h1>
+            <p class="subtitle">{{ report_subtitle }}</p>
+            <div class="metadata">
+                <p>生成时间: {{ generation_time }}</p>
+                <p>工作流ID: {{ workflow_id }}</p>
+            </div>
+            <div class="slide-number">1 / {{ total_slides }}</div>
+        </div>
+        
+        <!-- 目录幻灯片 -->
+        <div class="slide toc">
+            <h1>目录</h1>
+            <ul class="toc-list">
+                {% for chapter in chapters %}
+                <li>{{ loop.index }}. {{ chapter.section_title }}</li>
+                {% endfor %}
+            </ul>
+            <div class="slide-number">2 / {{ total_slides }}</div>
+        </div>
+        
+        <!-- 章节内容幻灯片 -->
+        {% set slide_counter = 3 %}
+        {% for chapter in chapters %}
+            {% set chapter_slides = chapter.slides if chapter.slides else [{'content': chapter.content}] %}
+            {% for slide in chapter_slides %}
+                <div class="slide content">
+                    <h1>{{ chapter.section_title }}{% if chapter_slides|length > 1 %} ({{ loop.index }}/{{ chapter_slides|length }}){% endif %}</h1>
+                    <div class="slide-content">
+                        <div class="content-page">
+                            {{ slide.content | safe }}
+                        </div>
+                    </div>
+                    <div class="slide-number">{{ slide_counter }} / {{ total_slides }}</div>
+                    {% set slide_counter = slide_counter + 1 %}
+                </div>
+            {% endfor %}
+        {% endfor %}
+    </div>
+    
+    <script>
+        // 简单的键盘导航
+        document.addEventListener('keydown', function(e) {
+            const slides = document.querySelectorAll('.slide');
+            let currentSlide = 0;
+            
+            // 找到当前可见的幻灯片
+            slides.forEach((slide, index) => {
+                if (slide.getBoundingClientRect().top <= window.innerHeight / 2) {
+                    currentSlide = index;
+                }
+            });
+            
+            if (e.key === 'ArrowDown' || e.key === 'PageDown') {
+                if (currentSlide < slides.length - 1) {
+                    slides[currentSlide + 1].scrollIntoView({ behavior: 'smooth' });
+                }
+                e.preventDefault();
+            } else if (e.key === 'ArrowUp' || e.key === 'PageUp') {
+                if (currentSlide > 0) {
+                    slides[currentSlide - 1].scrollIntoView({ behavior: 'smooth' });
+                }
+                e.preventDefault();
+            }
+        });
+    </script>
+</body>
+</html>

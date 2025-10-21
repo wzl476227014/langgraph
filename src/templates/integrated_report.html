@@ -1,0 +1,320 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ report_title }}</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Hiragino Sans GB', 'Microsoft YaHei', 'Helvetica Neue', Helvetica, Arial, sans-serif;
+            line-height: 1.8;
+            color: #2c3e50;
+            background: #f8f9fa;
+            padding: 20px 0;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            border-radius: 8px;
+            overflow: hidden;
+        }
+        
+        .header {
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 100%);
+            color: white;
+            padding: 60px 40px;
+            text-align: center;
+            position: relative;
+        }
+        
+        .header::after {
+            content: '';
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #f39c12, #e74c3c, #9b59b6, #3498db);
+        }
+        
+        .title {
+            font-size: 3.2em;
+            font-weight: 300;
+            margin-bottom: 20px;
+            letter-spacing: -1px;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+        
+        .subtitle {
+            font-size: 1.4em;
+            font-weight: 300;
+            opacity: 0.9;
+            letter-spacing: 0.5px;
+            max-width: 800px;
+            margin: 0 auto;
+        }
+        
+        .metadata {
+            background: #fafbfc;
+            padding: 30px 40px;
+            border-bottom: 1px solid #e1e4e8;
+            display: flex;
+            justify-content: space-between;
+            flex-wrap: wrap;
+            gap: 30px;
+        }
+        
+        .metadata-item {
+            color: #586069;
+            font-size: 0.95em;
+        }
+        
+        .metadata-item strong {
+            color: #24292e;
+            margin-right: 8px;
+        }
+        
+        .content {
+            padding: 60px 50px;
+        }
+        
+        .chapter {
+            margin-bottom: 80px;
+            animation: fadeIn 0.6s ease-in;
+        }
+        
+        .chapter:last-child {
+            margin-bottom: 0;
+        }
+        
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        
+        .chapter-title {
+            font-size: 2.2em;
+            color: #1e3c72;
+            margin-bottom: 30px;
+            padding-bottom: 15px;
+            border-bottom: 3px solid #e1e4e8;
+            position: relative;
+            font-weight: 400;
+        }
+        
+        .chapter-title::after {
+            content: '';
+            position: absolute;
+            bottom: -3px;
+            left: 0;
+            width: 80px;
+            height: 3px;
+            background: linear-gradient(90deg, #3498db 0%, #2a5298 100%);
+            border-radius: 2px;
+        }
+        
+        .chapter-content {
+            color: #4a5568;
+            font-size: 1.05em;
+            line-height: 1.8;
+        }
+        
+        .chapter-content h3 {
+            color: #2a5298;
+            font-size: 1.4em;
+            margin: 35px 0 20px 0;
+            font-weight: 500;
+        }
+        
+        .chapter-content h4 {
+            color: #2c3e50;
+            font-size: 1.2em;
+            margin: 25px 0 15px 0;
+            font-weight: 500;
+        }
+        
+        .chapter-content p {
+            margin-bottom: 20px;
+            text-align: justify;
+        }
+        
+        .chapter-content ul, .chapter-content ol {
+            margin: 20px 0;
+            padding-left: 35px;
+        }
+        
+        .chapter-content li {
+            margin-bottom: 12px;
+            line-height: 1.7;
+        }
+        
+        .toc {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 30px;
+            margin-bottom: 50px;
+            border: 1px solid #e1e4e8;
+        }
+        
+        .toc h2 {
+            color: #1e3c72;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+        }
+        
+        .toc ul {
+            list-style: none;
+            padding: 0;
+        }
+        
+        .toc li {
+            margin-bottom: 10px;
+        }
+        
+        .toc a {
+            color: #2a5298;
+            text-decoration: none;
+            font-size: 1.1em;
+            transition: color 0.3s ease;
+        }
+        
+        .toc a:hover {
+            color: #1e3c72;
+            text-decoration: underline;
+        }
+        
+        .footer {
+            background: #fafbfc;
+            padding: 40px;
+            text-align: center;
+            color: #586069;
+            font-size: 0.95em;
+            border-top: 1px solid #e1e4e8;
+        }
+        
+        /* 响应式设计 */
+        @media (max-width: 768px) {
+            .container {
+                margin: 10px;
+                border-radius: 8px;
+            }
+            
+            .header {
+                padding: 30px 20px;
+            }
+            
+            .title {
+                font-size: 2.2em;
+            }
+            
+            .metadata {
+                padding: 20px;
+                flex-direction: column;
+                gap: 10px;
+            }
+            
+            .content {
+                padding: 30px 20px;
+            }
+            
+            .chapter-title {
+                font-size: 1.8em;
+            }
+        }
+        
+        /* 打印样式 */
+        @media print {
+            body {
+                background: white;
+                padding: 0;
+            }
+            
+            .container {
+                box-shadow: none;
+                max-width: 100%;
+            }
+            
+            .header {
+                background: #1e3c72 !important;
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+            
+            .chapter {
+                page-break-inside: avoid;
+            }
+            
+            .toc {
+                page-break-after: always;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1 class="title">{{ report_title }}</h1>
+            <p class="subtitle">{{ report_subtitle }}</p>
+        </div>
+        
+        <div class="metadata">
+            <div class="metadata-item">
+                <strong>生成时间:</strong> {{ generation_time }}
+            </div>
+            <div class="metadata-item">
+                <strong>工作流ID:</strong> {{ workflow_id }}
+            </div>
+            <div class="metadata-item">
+                <strong>章节数量:</strong> {{ total_chapters }}
+            </div>
+            {% if quality_assessment %}
+            <div class="metadata-item">
+                <strong>质量评分:</strong> {{ quality_assessment.overall_score }}
+            </div>
+            {% endif %}
+        </div>
+        
+        <div class="content">
+            <!-- 目录 -->
+            <div class="toc">
+                <h2>目录</h2>
+                <ul>
+                    {% for chapter in chapters %}
+                    <li><a href="#chapter-{{ loop.index }}">{{ loop.index }}. {{ chapter.section_title }}</a></li>
+                    {% endfor %}
+                </ul>
+            </div>
+            
+            <!-- 章节内容 -->
+            {% for chapter in chapters %}
+            <div class="chapter" id="chapter-{{ loop.index }}">
+                <h2 class="chapter-title">{{ chapter.section_title }}</h2>
+                <div class="chapter-content">
+                    {{ chapter.content | safe }}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        
+        <div class="footer">
+            <p>本报告由 Multi-Agent Report Generation System (MARGS) 自动生成</p>
+            <p>生成时间: {{ generation_time }} | 工作流ID: {{ workflow_id }}</p>
+        </div>
+    </div>
+</body>
+</html>
