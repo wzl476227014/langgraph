@@ -11,6 +11,7 @@ from datetime import datetime
 from ..utils.config import get_config
 from ..utils.logger import get_logger
 from ..utils.llm_config import generate_system_response
+from .charts.chart_processor import ChartProcessor
 
 logger = get_logger(__name__)
 
@@ -30,6 +31,9 @@ class SlideGeneratorTool:
 
         # 模板约束
         self.template_constraints = self._load_template_constraints()
+        
+        # 图表处理器
+        self.chart_processor = ChartProcessor()
 
         logger.info("SlideGeneratorTool initialized", agent_name="SlideGenerator")
 
@@ -96,14 +100,21 @@ class SlideGeneratorTool:
                 logger.warning(f"Generated HTML for page {page_num} failed validation", agent_name="SlideGenerator")
                 html_content = self._fix_html(html_content)
 
-            # 阶段2.2: 图表数据准确性验证
+            # 新功能：处理图表占位符
             if template_type == "chart":
-                if not self._validate_chart_accuracy(html_content, extracted_data):
-                    logger.warning(f"Chart accuracy validation failed for page {page_num}", agent_name="SlideGenerator")
-                    # 可以选择重新生成或修复，这里暂时记录警告
+                logger.info(f"Processing chart placeholders for page {page_num}", agent_name="SlideGenerator")
                 
-                # 阶段2.3: 布局优化
-                html_content = self._optimize_chart_layout(html_content, template_type)
+                # 验证占位符格式
+                validation_result = self.chart_processor.validate_placeholders(html_content)
+                if not validation_result["valid"]:
+                    logger.warning(
+                        f"Chart placeholder validation issues: {validation_result['errors']}", 
+                        agent_name="SlideGenerator"
+                    )
+                
+                # 替换占位符为实际图表代码
+                html_content = self.chart_processor.process_html(html_content)
+                logger.info(f"Replaced {validation_result['count']} chart placeholder(s)", agent_name="SlideGenerator")
 
             result = {
                 "html_content": html_content,
@@ -221,11 +232,10 @@ class SlideGeneratorTool:
 ⚠️ 请务必在生成内容时满足上述用户要求！
 """
 
-        # 新增：图表数据分析
-        chart_analysis = self._analyze_chart_data(extracted_data, page_info)
-        
-        # 新增：图表设计建议
-        chart_guidance = self._provide_chart_design_guidance(page_info, chart_analysis)
+        # 图表指导（使用新的占位符方式）
+        chart_guidance = ""
+        if page_info["template"] == "chart":
+            chart_guidance = self._get_chart_placeholder_guidance()
 
         prompt = f"""
 请为第{page_num}页生成完整的HTML幻灯片内容。
@@ -256,15 +266,12 @@ class SlideGeneratorTool:
 *   **信息密度**: 每页最多展示4-6个核心要点。
 *   **数据选择**: 当数据项超过8个时，只选择最重要的进行展示。
 *   **图表**: 根据数据判断是否需要使用合适的图表展示数据
-    *   **仪表盘高度300-350px，柱状图高度350-400px，饼图高度300-350px**
-    *   垂直方向上最多堆叠1个大型图表，在有限空间内最大化数据信息密度，布局紧凑，避免任何不必要的空白
-    *   使用专业配色：主色调 `rgb(10, 66, 117)`，辅助色为其不同透明度的变体，避免使用鲜艳的红、绿等颜色。
-    *   必须包含清晰的数据标签、图例和核心结论的文字说明（如柱状图顶部的数值，饼图扇区内的百分比/名称）,标签字体应清晰、简洁，避免遮挡关键数据点。
-    *   图例位置优先置于图表**顶部**（`top`）或**右侧**（`right`），以节省垂直空间。
+    *   **重要**: 不要手动生成SVG或图表HTML代码！使用图表占位符（见下方示例）
+    *   系统将自动将占位符替换为专业的ECharts图表
+    *   支持的图表类型: bar(柱状图), line(折线图), pie(饼图), gauge(仪表盘), radar(雷达图), table(表格)
+    *   图表高度建议: 仪表盘350px，柱状图400px，饼图350px，折线图400px
+    *   垂直方向上最多放置2个图表
     *   表格: 当需要展示精确数值、多维度明细或便于数据查找时使用
-    *   **数据准确性**：所有百分比、角度、比例必须与原始数据严格匹配
-    *   **布局优化**：减少图表容器内的空白，增加信息密度，避免页面空旷
-    *   **图表内边距**：图表内容区域与容器边框的**内边距必须最小化**。设置 `padding: '5px'`，确保数据图形占据主要面积。
 *   **列表**: 每个列表最多包含6个项目。
 *   **数据卡片**: 当卡片数量较多（如4-6个）时，优先使用 `grid` 布局（如 `grid grid-cols-3 gap-6`）以避免过窄导致的文字换行问题。
 *   **字体大小规范**：
@@ -624,28 +631,37 @@ class SlideGeneratorTool:
 **内容密度控制**：每页严格限制4-6个要点，禁止信息过载。
 """,
             "chart": """
-# 📊 角色：专业数据可视化设计师
-你是专业的数据可视化设计师，擅长创建准确、清晰、美观的图表。
+# 📊 角色：专业数据分析师 + 图表配置专家
+你是专业的数据分析师，擅长分析数据特征并生成结构化的图表配置。
 
 ## 核心能力
-- **数据准确性**：确保图表准确反映数据关系
-- **视觉清晰度**：使用适当的图表类型和比例
-- **专业标准**：符合商业图表的规范要求
+- **数据理解**：准确理解数据含义和关系
+- **图表选择**：根据数据特征选择最适合的图表类型
+- **配置生成**：生成结构化的JSON配置，而非手动编写SVG代码
 
-## 图表设计原则
-1. **准确性优先**：角度、比例必须与数据严格匹配
-2. **简洁明了**：避免过度装饰，突出数据本身
-3. **单栏布局**：图表垂直排列，每页最多2个图表
-4. **标准组件**：使用坐标轴、图例、标签等专业元素
+## 工作流程
+1. **分析数据**：理解数据的维度、数量、关系
+2. **选择图表类型**：
+   - 分类对比 → 柱状图(bar)
+   - 趋势变化 → 折线图(line)
+   - 占比关系 → 饼图(pie)
+   - 单一指标 → 仪表盘(gauge)
+   - 多维对比 → 雷达图(radar)
+   - 精确数值 → 表格(table)
+3. **生成占位符**：使用 `<!-- CHART_PLACEHOLDER: {...} -->` 格式
 
-## 技术规范
-- **仪表盘**：使用精确的弧线计算，添加刻度线，**高度300-350px**
-- **柱状图**：包含Y轴刻度、网格线、数值标签，**高度350-400px**
-- **饼图**：准确的扇形角度，清晰的图例说明，**高度300-350px**
-- **尺寸标准**：图表要充分利用空间，避免过于小巧
-- **布局优化**：减少图表间距，增加信息密度，避免页面空旷
+## 关键要求
+⚠️ **禁止手动编写SVG或ECharts代码**
+✅ **只需生成图表占位符，系统会自动渲染专业图表**
+✅ **确保data中的数值与原始数据100%匹配**
+✅ **每页最多1-2个图表，避免信息过载**
 
-**设计规范**：保持单栏布局，所有图表垂直排列，确保数据准确清晰。
+## 图表高度标准
+- 仪表盘：350px
+- 柱状图：400px
+- 饼图：350px
+- 折线图：400px
+- 表格：根据行数调整（约300-400px）
 """,
             "summary": """
 # 🎯 角色：战略总结专家
@@ -965,6 +981,142 @@ class SlideGeneratorTool:
             "generation_time": datetime.now().isoformat(),
             "status": "default"
         }
+
+    def _get_chart_placeholder_guidance(self) -> str:
+        """获取图表占位符使用指导"""
+        return """
+
+# 📊 图表占位符使用指南
+
+## 重要说明
+⚠️ **请勿手动编写SVG或图表HTML代码！** 使用图表占位符，系统会自动生成专业的ECharts图表。
+
+## 占位符格式
+```html
+<!-- CHART_PLACEHOLDER: {"chart_type": "类型", "title": "标题", "data": {...}, "height": 高度, "options": {...}} -->
+```
+
+## 支持的图表类型
+
+### 1. 柱状图 (bar)
+```html
+<!-- CHART_PLACEHOLDER: {
+  "chart_type": "bar",
+  "title": "销售额对比",
+  "height": 400,
+  "data": {
+    "labels": ["Q1", "Q2", "Q3", "Q4"],
+    "series": [
+      {"name": "2023年", "data": [120, 150, 180, 200]},
+      {"name": "2024年", "data": [150, 180, 220, 250]}
+    ]
+  },
+  "options": {
+    "show_legend": true,
+    "legend_position": "top",
+    "show_data_labels": true,
+    "y_axis_name": "销售额",
+    "unit": "万元"
+  }
+} -->
+```
+
+### 2. 饼图 (pie)
+```html
+<!-- CHART_PLACEHOLDER: {
+  "chart_type": "pie",
+  "title": "市场份额分布",
+  "height": 350,
+  "data": {
+    "labels": ["产品A", "产品B", "产品C", "产品D"],
+    "series": [
+      {"name": "市场份额", "data": [35, 28, 22, 15]}
+    ]
+  },
+  "options": {
+    "show_legend": true,
+    "show_data_labels": true
+  }
+} -->
+```
+
+### 3. 折线图 (line)
+```html
+<!-- CHART_PLACEHOLDER: {
+  "chart_type": "line",
+  "title": "增长趋势",
+  "height": 400,
+  "data": {
+    "labels": ["1月", "2月", "3月", "4月", "5月", "6月"],
+    "series": [
+      {"name": "用户数", "data": [100, 120, 150, 180, 220, 250]}
+    ]
+  },
+  "options": {
+    "show_legend": true,
+    "y_axis_name": "用户数",
+    "unit": "万"
+  }
+} -->
+```
+
+### 4. 仪表盘 (gauge)
+```html
+<!-- CHART_PLACEHOLDER: {
+  "chart_type": "gauge",
+  "title": "完成率",
+  "height": 350,
+  "data": {
+    "value": 75,
+    "max_value": 100
+  },
+  "options": {
+    "unit": "%"
+  }
+} -->
+```
+
+### 5. 表格 (table)
+```html
+<!-- CHART_PLACEHOLDER: {
+  "chart_type": "table",
+  "title": "关键指标汇总",
+  "height": 300,
+  "data": {
+    "table_headers": ["指标", "2023年", "2024年", "增长率"],
+    "table_rows": [
+      {"指标": "收入", "2023年": "100万", "2024年": "150万", "增长率": "+50%"},
+      {"指标": "用户", "2023年": "1000", "2024年": "1500", "增长率": "+50%"}
+    ]
+  }
+} -->
+```
+
+## 使用建议
+1. **数据准确性**: 确保data中的数值与原始数据完全一致
+2. **标题清晰**: title应简洁明了地描述图表内容
+3. **高度合理**: 根据内容选择合适的高度（350-400px）
+4. **每页限制**: 每页最多放置1-2个图表
+5. **占位符位置**: 在需要显示图表的位置插入占位符即可
+
+## 示例页面结构
+```html
+<div class="content-section">
+  <div class="mb-6">
+    <h1>销售数据分析</h1>
+  </div>
+  
+  <div class="flex-1">
+    <p style="font-size: 22px; margin-bottom: 20px;">2024年销售业绩持续增长，各季度表现优异。</p>
+    
+    <!-- 插入柱状图 -->
+    <!-- CHART_PLACEHOLDER: {"chart_type": "bar", ...} -->
+    
+    <p style="font-size: 20px; margin-top: 20px;">关键发现：Q4销售额突破250万，同比增长25%。</p>
+  </div>
+</div>
+```
+"""
 
     def _analyze_chart_data(self, extracted_data: Dict[str, Any], page_info: Dict[str, Any]) -> str:
         """分析图表数据，提供专业建议"""
