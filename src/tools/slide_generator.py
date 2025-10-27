@@ -901,6 +901,14 @@ class SlideGeneratorTool:
   .toc-item { display: flex; align-items: center; margin-bottom: 18px; font-size: 28px; color: #333; }
   .toc-number { color: rgb(10, 66, 117); font-weight: 600; margin-right: 15px; min-width: 40px; }
   .toc-title { flex: 1; }
+  
+  /* 图表容器优化 - 自适应高度，避免内容重叠 */
+  .chart-container { margin-bottom: 20px; position: relative; }
+  .chart-container h3 { font-size: 28px; color: rgb(10, 66, 117); margin-bottom: 10px; }
+  
+  /* 内容区域优化 - 允许滚动以容纳所有内容 */
+  .content-section { flex: 1; padding: 40px 80px 60px 80px; display: flex; flex-direction: column; overflow-y: auto; overflow-x: hidden; }
+  .content-section > div:last-of-type { padding-bottom: 20px; }
 </style>
 </head>
 <body>
