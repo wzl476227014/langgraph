@@ -40,6 +40,7 @@ class ChartCodeGenerator:
             config.container_id = f"chart_{uuid.uuid4().hex[:8]}"
         
         # 根据图表类型生成对应的ECharts配置
+        config.height = 200
         if config.chart_type == ChartType.BAR:
             echarts_option = self._generate_bar_option(config)
         elif config.chart_type == ChartType.LINE:

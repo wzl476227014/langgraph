@@ -101,7 +101,7 @@ class SlideGeneratorTool:
                 html_content = self._fix_html(html_content)
 
             # 新功能：处理图表占位符
-            if template_type == "chart":
+            if template_type != "chart1":
                 logger.info(f"Processing chart placeholders for page {page_num}", agent_name="SlideGenerator")
                 
                 # 验证占位符格式
@@ -234,7 +234,7 @@ class SlideGeneratorTool:
 
         # 图表指导（使用新的占位符方式）
         chart_guidance = ""
-        if page_info["template"] == "chart":
+        if page_info["template"] == "chart" or page_info["template"] == "content":
             chart_guidance = self._get_chart_placeholder_guidance()
 
         prompt = f"""
@@ -255,7 +255,6 @@ class SlideGeneratorTool:
 
 【统计数据】
 {json.dumps(relevant_statistics, ensure_ascii=False, indent=2) if relevant_statistics else "（无匹配的统计数据）"}
-{chart_analysis}
 {chart_guidance}
 {user_requirements_section}
 {reference_template_section}
@@ -270,7 +269,7 @@ class SlideGeneratorTool:
     *   系统将自动将占位符替换为专业的ECharts图表
     *   支持的图表类型: bar(柱状图), line(折线图), pie(饼图), gauge(仪表盘), radar(雷达图), table(表格)
     *   图表高度建议: 仪表盘350px，柱状图400px，饼图350px，折线图400px
-    *   垂直方向上最多放置2个图表
+    *   垂直方向上最多放置1个图表
     *   表格: 当需要展示精确数值、多维度明细或便于数据查找时使用
 *   **列表**: 每个列表最多包含6个项目。
 *   **数据卡片**: 当卡片数量较多（如4-6个）时，优先使用 `grid` 布局（如 `grid grid-cols-3 gap-6`）以避免过窄导致的文字换行问题。
@@ -1011,7 +1010,7 @@ class SlideGeneratorTool:
 <!-- CHART_PLACEHOLDER: {
   "chart_type": "bar",
   "title": "销售额对比",
-  "height": 400,
+  "height": 200,
   "data": {
     "labels": ["Q1", "Q2", "Q3", "Q4"],
     "series": [
@@ -1034,7 +1033,7 @@ class SlideGeneratorTool:
 <!-- CHART_PLACEHOLDER: {
   "chart_type": "pie",
   "title": "市场份额分布",
-  "height": 350,
+  "height": 250,
   "data": {
     "labels": ["产品A", "产品B", "产品C", "产品D"],
     "series": [
@@ -1053,7 +1052,7 @@ class SlideGeneratorTool:
 <!-- CHART_PLACEHOLDER: {
   "chart_type": "line",
   "title": "增长趋势",
-  "height": 400,
+  "height": 200,
   "data": {
     "labels": ["1月", "2月", "3月", "4月", "5月", "6月"],
     "series": [
@@ -1073,7 +1072,7 @@ class SlideGeneratorTool:
 <!-- CHART_PLACEHOLDER: {
   "chart_type": "gauge",
   "title": "完成率",
-  "height": 350,
+  "height": 250,
   "data": {
     "value": 75,
     "max_value": 100
@@ -1104,7 +1103,7 @@ class SlideGeneratorTool:
 1. **数据准确性**: 确保data中的数值与原始数据完全一致
 2. **标题清晰**: title应简洁明了地描述图表内容
 3. **高度合理**: 根据内容选择合适的高度（350-400px）
-4. **每页限制**: 每页最多放置1-2个图表
+4. **每页限制**: 每页最多放置1个图表
 5. **占位符位置**: 在需要显示图表的位置插入占位符即可
 
 ## 示例页面结构
