@@ -74,21 +74,28 @@ class SlideGeneratorTool:
             return self._get_default_slide(page_info)
 
         try:
+            # 预处理数据：进行内容密度控制
+            controlled_data = self._control_content_density(
+                page_info,
+                extracted_data,
+                template_type
+            )
+            
             # 构建生成提示词
             generation_prompt = self._build_generation_prompt(
                 page_info,
                 template_cache,
-                extracted_data,
+                controlled_data,
                 user_requirements
             )
 
-            logger.info(f"generation_prompt： {generation_prompt}", agent_name="SlideGenerator")
+            logger.info(f"generation_prompt length: {len(generation_prompt)} chars", agent_name="SlideGenerator")
 
-            # 调用LLM生成HTML
+            # 调用LLM生成HTML，降低温度以提高稳定性
             html_result = generate_system_response(
                 system_prompt=self._get_system_prompt(template_type),
                 user_message=generation_prompt,
-                temperature=0.8,
+                temperature=0.7,  # 降低温度，提高一致性
                 max_tokens=8000
             )
 
@@ -238,109 +245,71 @@ class SlideGeneratorTool:
             chart_guidance = self._get_chart_placeholder_guidance()
 
         prompt = f"""
-请为第{page_num}页生成完整的HTML幻灯片内容。
+# 生成任务
+为第{page_num}页生成完整的HTML幻灯片内容。
 
-【页面信息】
-- 页码: {page_num}
-- 标题: {title}
-- 副标题: {subtitle}
-- 内容简述: {content_brief}
-- 模板类型: {template_type}
+## 页面基本信息
+- **页码**: {page_num}
+- **标题**: {title}
+- **副标题**: {subtitle}
+- **内容简述**: {content_brief}
+- **模板类型**: {template_type}
+- **数据需求**: {json.dumps(data_requirements, ensure_ascii=False)}
 
-【数据要求】
-{json.dumps(data_requirements, ensure_ascii=False, indent=2)}
+## 可用数据源
+### 描述性内容
+{json.dumps(relevant_descriptions, ensure_ascii=False, indent=2) if relevant_descriptions else "无"}
 
-【描述性内容】
-{json.dumps(relevant_descriptions, ensure_ascii=False, indent=2) if relevant_descriptions else "（无匹配的描述性内容）"}
-
-【统计数据】
-{json.dumps(relevant_statistics, ensure_ascii=False, indent=2) if relevant_statistics else "（无匹配的统计数据）"}
+### 统计数据
+{json.dumps(relevant_statistics, ensure_ascii=False, indent=2) if relevant_statistics else "无"}
 {chart_analysis}
 {chart_guidance}
 {user_requirements_section}
 {reference_template_section}
 {base_template_section}
 
-【生成要求 - 从数据到价值】⚠️ 这是提升PPT质量的关键！
+## 内容生成指南
 
-## 内容组织原则（必须遵循）
-### 1. 价值驱动的内容结构
-不要只是平铺数据，要构建"数据→洞察→价值"的逻辑链：
+### ⚠️ 关键要求：页面密度控制
+**必须确保所有内容在单页内完整展示，不被截断！**
 
-**❌ 错误示例（只罗列数据）**：
+**控制方法**：
+1. **精选数据**：从上述数据源中选择最重要的4-6个要点
+2. **精简文字**：正文总字数控制在150-200字以内
+3. **控制图表**：最多1-2个图表，单个图表高度不超过400px
+4. **合理间距**：元素间距适中，避免过于紧凑或过于松散
+
+### 内容深度要求
+每个要点的标准结构：
 ```
-监测日志：589.39万条
-安全告警：6.7万条
-闭环率：91.13%
-```
-
-**✅ 正确示例（数据+洞察+价值）**：
-```
-【监测效能显著提升】
-• 监测日志589.39万条，产生6.7万条告警
-• 有效告警率85%，较上期提升20个百分点 （趋势洞察）
-• 误报率大幅下降，节省40%人工研判时间 （价值体现）
-
-【闭环管理成效显著】  
-• 告警闭环率达91.13%，超出目标值6个百分点 （对比目标）
-• 平均处理时长从4小时缩短至1.5小时 （效率提升）
-• 说明应急响应体系运转高效 （结论）
+【小标题：结论性表述】
+• 核心数据 + 趋势分析
+• 对比说明 + 价值体现
+• （可选）问题或改进方向
 ```
 
-### 2. 深度分析要求
-每一页内容都必须包含：
-✅ **核心数据**：关键指标和统计数据
-✅ **趋势分析**：环比/同比变化，上升/下降趋势
-✅ **对比洞察**：与目标值、行业标准、历史数据的对比
-✅ **价值说明**：这些数据说明了什么？体现了什么能力？
-✅ **问题识别**：存在什么不足？有什么风险？（诚实面对）
-✅ **改进方向**：下一步应该如何优化？（可选，视页面主题而定）
-
-### 3. 逻辑表达技巧
-**使用结构化表述**：
-- 先总后分：先给结论，再展开数据支撑
-- 因果关系：说明为什么会有这样的结果
-- 对比强调：用对比突出亮点或问题
-- 量化表达：尽可能用数字和百分比
-
-**示例结构**：
+**示例**：
 ```
-【小标题：一句话结论】
-• 核心数据展示
-• 趋势/对比分析  
-• 价值意义说明
-• 存在问题识别（如有）
+【监测效能大幅提升】
+• 日志589万条，告警6.7万条，有效率85%（↑20%）
+• 误报率下降，节省40%人工时间
+• 体现监测能力持续优化
 ```
 
-### 4. 技术规范
-*   **信息密度**: 每页最多展示4-6个核心要点，但每个要点要有深度
-*   **数据选择**: 当数据项超过8个时，选择最能说明问题的进行展示
-*   **图表使用**: 根据数据判断是否需要使用合适的图表
-    *   **重要**: 不要手动生成SVG或图表HTML代码！使用图表占位符
-    *   系统将自动将占位符替换为专业的ECharts图表
-    *   支持的图表类型: bar(柱状图), line(折线图), pie(饼图), gauge(仪表盘), radar(雷达图), table(表格)
-    *   图表高度建议: 仪表盘350px，柱状图400px，饼图350px，折线图400px
-    *   垂直方向上最多放置2个图表
-    *   表格: 当需要展示精确数值、多维度明细或便于数据查找时使用
-*   **列表规范**: 每个列表最多6个项目，每项要言之有物
-*   **数据卡片**: 优先使用 `grid` 布局（如 `grid grid-cols-3 gap-6`）
-*   **字体大小规范**: 小标题(h3): 28px
+### 数据处理原则
+- **优先级筛选**：数据>8个时，只展示最关键的
+- **趋势对比**：每个数据配上环比/同比或目标对比
+- **价值说明**：每组数据说明其业务意义
+- **客观诚实**：成果与不足都要体现
 
-### 5. 禁止事项
-❌ 只罗列数据，不做分析和解读
-❌ 笼统的描述（如"效果良好"），没有具体依据
-❌ 缺少对比和趋势，看不出变化
-❌ 避谈问题，只报喜不报忧
-❌ 数据和结论之间缺少逻辑联系
+### 技术要求
+- **HTML完整性**：必须包含<!DOCTYPE html>, <html>, <head>, <body>等完整结构
+- **单栏布局**：严格垂直单栏，禁止多列grid布局
+- **图表占位符**：使用<!-- CHART_PLACEHOLDER: {{...}} -->格式
+- **固定尺寸**：1920x1080px
+- **主色调**：rgb(10,66,117)
 
-**必须输出完整的HTML文档**，包括：
-- <!DOCTYPE html>
-- <html lang="zh-CN">
-- <head>（包含<meta>、<title>、<link>、<style>等）
-- <body>（包含完整的幻灯片内容）
-- 所有标签必须正确闭合
-
-请直接输出完整的HTML代码,不要添加任何解释:
+请直接输出完整的HTML代码，不要添加任何解释：
 """
         return prompt
 
@@ -353,78 +322,49 @@ class SlideGeneratorTool:
     
 
     def _get_base_system_prompt(self) -> str:
-        """获取基础系统提示词"""
-        return """# 你是一位资深的商业分析师 + PPT设计专家
-            ## 核心能力（优先级排序）
-            1. **深度分析**: 能够从数据中提炼洞察，构建"数据→分析→结论"的完整逻辑链
-            2. **价值表达**: 善于将原始信息转化为对决策有价值的结论和建议
-            3. **内容架构**: 能够将复杂信息结构化、逻辑化、易理解
-            4. **视觉设计**: 精通现代PPT设计原则，创建视觉冲击力强的幻灯片
-            5. **商业沟通**: 深谙商务演示技巧，内容专业且具说服力
+        """获取基础系统提示词 - 聚焦角色定位和核心原则"""
+        return """# 角色定位
+你是一位资深的商业分析师 + PPT设计专家，擅长：
+1. **深度分析**：从数据中提炼洞察，构建"数据→分析→结论"的逻辑链
+2. **价值表达**：将原始信息转化为对决策有价值的结论和建议
+3. **内容设计**：创建专业、清晰、有说服力的商业演示内容
+4. **页面控制**：精确控制每页内容密度，确保在单页内完整展示
 
-            ## 设计原则
-            ### 内容层面（最重要）
-            - **价值优先**: 不只是展示数据，要揭示数据的意义和价值
-            - **深度分析**: 包含趋势、对比、因果关系的分析，而非简单罗列
-            - **逻辑严密**: 观点有数据支撑，结论有推理过程
-            - **准确具体**: 数据精确、引用可靠、表述严谨，避免模糊表达
-            - **问题导向**: 客观指出不足，体现分析深度和诚实态度
-            - **行动指引**: 提供可执行的建议和改进方向
+## 核心设计原则
+### 内容原则（最重要 - 60%权重）
+- **价值优先**：揭示数据的意义和价值，而非简单罗列
+- **深度分析**：包含趋势、对比、因果关系，有推理过程
+- **逻辑严密**：观点有数据支撑，结论有依据
+- **语言精准**：用具体数字，避免模糊表达
+- **诚实客观**：既展示成果，也客观指出不足
 
-            ### 视觉层面
-            - **对比度**: 标题、正文、数据要有明显的视觉层次
-            - **一致性**: 全局统一的颜色方案、字体系统、间距规范
-            - **简洁性**: 每页聚焦1-2个核心观点，避免信息过载
-            - **专业性**: 配色优雅、排版精致、细节考究
+### 页面密度控制（关键）
+- **单页限制**：所有内容必须在1920x1080px单页内完整展示
+- **信息精简**：每页最多4-6个核心要点
+- **数据筛选**：当数据项超过8个时，只选择最重要的展示
+- **图表限制**：每页最多1-2个图表，总高度不超过700px
+- **文字控制**：正文总字数不超过200字
 
-            ### 技术规范
-            - **尺寸标准**: 1920x1080px，16:9比例
-            - **字体规范**: 
-            * 标题: 48-64px, 加粗
-            * 副标题: 28-36px, 半粗体
-            * 正文: 20-24px, 常规
-            * 数据: 32-48px, 加粗
-            - **颜色使用**: 
-            * 主色: 用于标题、强调
-            * 辅色: 用于装饰、辅助
-            * 中性色: 用于正文、背景
-            - **间距控制**:
-            * 元素间距: 最少16px
-            * 段落间距: 20-24px
-            * 边距: 80-120px
+### 视觉与技术规范（40%权重）
+**尺寸**: 1920x1080px固定
+**字体**: 标题48px, 副标题28-36px, 正文20-24px, 最小14px
+**颜色**: 主色rgb(10,66,117)
+**布局**: 单栏垂直布局，禁止多列
+**间距**: 元素间距16px+, 段落间距20px+
 
-            ## 质量标准
-            ### 内容质量（权重60% - 最重要）
-            - ✅ **深度分析**：每页包含"数据→洞察→价值"的完整逻辑
-            - ✅ **观点清晰**：小标题就是结论，而非泛泛的分类
-            - ✅ **数据准确**：所有数字来源可靠，计算正确
-            - ✅ **逻辑严密**：结论有推理过程，不是空口断言
-            - ✅ **价值明确**：说明数据的意义、影响、启示
-            - ✅ **问题客观**：诚实指出不足，体现专业态度
-            - ✅ **语言精准**：用具体数字而非"很多""较好"等模糊词
+## 质量检查清单
+✅ 每页有明确的核心结论
+✅ 数据后有分析和洞察
+✅ 逻辑链条完整
+✅ 语言精准具体
+✅ **内容不超出单页范围**（关键）
 
-            ### 视觉质量（权重25%）
-            - ✅ 布局合理、美观大方
-            - ✅ 配色和谐、对比适度
-            - ✅ 字体统一、大小适当
-            - ✅ 图表清晰、数据可读
-
-            ### 技术质量（权重15%）
-            - ✅ HTML结构完整、语义正确
-            - ✅ CSS样式规范、兼容性好
-            - ✅ 响应式设计、适配多端
-            - ✅ 代码简洁、易于维护
-
-            ## 禁止事项（违反将严重影响质量评分）
-            ❌ **只罗列数据，不做分析**（这是最常见且最严重的问题）
-            ❌ **笼统的结论**（如"效果良好"），没有具体依据
-            ❌ **缺少对比和趋势**，看不出变化和意义
-            ❌ **避谈问题**，只报喜不报忧
-            ❌ **数据和结论之间缺少逻辑联系**
-            ❌ 内容模糊不清、逻辑混乱
-            ❌ 数据错误、图表失真
-            ❌ 排版凌乱、视觉污染
-            ❌ 信息过载、要点不明"""
+## 禁止事项
+❌ 只罗列数据，不做分析
+❌ 笼统描述，缺少依据
+❌ 缺少对比和趋势
+❌ 内容过载导致超出单页
+❌ 多列布局或复杂嵌套"""
 
     def _get_template_specific_prompt(self, template_type: str) -> str:
         """获取特定模板类型的提示词"""
@@ -440,291 +380,108 @@ class SlideGeneratorTool:
         return prompts.get(template_type, prompts["content"])
     
     def _get_cover_prompt(self) -> str:
-        """封面页专用提示词"""
-        return """## 📋 封面页设计指南
+        """封面页专用提示词 - 简化版"""
+        return """## 📋 封面页设计要点
 
-        ### 设计目标
-        - 第一印象：专业、可信、吸引人
-        - 品牌体现：体现企业/项目形象
-        - 信息传达：标题、副标题、时间、汇报人清晰可见
+### 三段布局
+- 顶部(200px): Logo/装饰元素
+- 中心(600px): 主标题+副标题
+- 底部(280px): 汇报人/日期
 
-        ### 布局要求
-        ```
-        顶部区域（200px）
-        ├─ Logo/品牌标识（左上或右上）
-        └─ 装饰性图形元素
+### 内容要求
+- 主标题: 48-64px，8-15字
+- 副标题: 28-36px，15-30字
+- 信息: 汇报人、部门、日期
 
-        中心区域（600px）
-        ├─ 主标题：48-64px，加粗，居中
-        ├─ 副标题：28-36px，半粗体，居中（可选）
-        └─ 关键标签：展示行业/类别等（可选）
-
-        底部区域（280px）
-        ├─ 汇报人/部门信息
-        ├─ 日期/时间范围
-        └─ 联系方式（可选）
-        ```
-
-        ### 视觉元素
-        - **背景**: 渐变、大图、纹理等，但不能喧宾夺主
-        - **装饰**: 几何图形、线条、光效等，增强设计感
-        - **色彩**: 主色调鲜明，辅色点缀，整体和谐
-
-        ### 内容要求
-        - 标题: 简洁有力（8-15字）
-        - 副标题: 补充说明（15-30字）
-        - 标签: 3-6个关键词
-        - 信息: 完整但不冗余
-
-        ### 示例结构
-        ```html
-        <div class="cover-slide">
-        <div class="brand-area">
-            <div class="logo"></div>
-        </div>
-        <div class="hero-area">
-            <h1>主标题</h1>
-            <div class="divider"></div>
-            <h2>副标题</h2>
-            <div class="tags">
-            <span>标签1</span>
-            <span>标签2</span>
-            <span>标签3</span>
-            </div>
-        </div>
-        <div class="info-area">
-            <div class="presenter">汇报人</div>
-            <div class="date">2024年1月</div>
-        </div>
-        </div>
-        ```"""
+### 示例结构
+```html
+<div class="hero-area">
+  <h1>主标题</h1>
+  <h2>副标题</h2>
+</div>
+<div class="info-area">
+  <div>汇报人</div>
+  <div>2024年1月</div>
+</div>
+```"""
 
     def _get_toc_prompt(self) -> str:
-        """目录页专用提示词"""
-        return """## 📑 目录页设计指南
+        """目录页专用提示词 - 简化版"""
+        return """## 📑 目录页设计要点
 
-        ### 设计目标
-        - 结构清晰：一目了然的章节结构
-        - 导航便捷：方便快速定位内容
-        - 视觉美观：整洁有序、层次分明
+### 布局模式
+纵向列表（推荐，3-8个章节）：
+```
+01 章节一
+02 章节二
+03 章节三
+```
 
-        ### 布局模式
-        #### 模式1: 纵向列表（推荐，适合3-8个章节）
-        ```
-        01 章节一
-        └ 简短描述（可选）
-        
-        02 章节二
-        └ 简短描述（可选）
-        
-        03 章节三
-        └ 简短描述（可选）
-        ```
+### 样式要求
+- 编号: 28-32px, 主色调
+- 标题: 28-32px, 加粗
+- 间距: 章节间充分留白
 
-        #### 模式2: 分栏布局（适合6-12个章节）
-        ```
-        01 章节一       04 章节四
-        02 章节二       05 章节五
-        03 章节三       06 章节六
-        ```
+### 示例结构
+```html
+<div class="toc-item">
+  <div class="toc-number">01</div>
+  <h3>章节标题</h3>
+</div>
+```
 
-        #### 模式3: 时间轴（适合按时间顺序的内容）
-        ```
-        ●────01────●────02────●────03────●
-        │         │         │         │
-        章节一     章节二     章节三     章节四
-        ```
-
-        ### 视觉元素
-        - **编号**: 圆形、方形或数字，醒目但不突兀
-        - **连接线**: 虚线、实线或箭头，引导视线
-        - **图标**: 每个章节配一个简洁图标（可选）
-        - **页码**: 显示每个章节的起始页（可选）
-
-        ### 样式要求
-        - 标题: 28-32px, 加粗
-        - 描述: 18-22px, 常规
-        - 编号: 大而醒目，主色调
-        - 间距: 章节间留白充分
-
-        ### 内容建议
-        - 章节数: 3-8个为宜
-        - 章节名: 简洁（4-8字）
-        - 描述: 一句话概括（可选）
-
-        ### 示例结构
-        ```html
-        <div class="toc-slide">
-        <h1>目录</h1>
-        <div class="divider"></div>
-        
-        <div class="toc-list">
-            <div class="toc-item">
-            <div class="toc-number">01</div>
-            <div class="toc-content">
-                <h3>章节标题</h3>
-                <p>简短描述</p>
-            </div>
-            </div>
-            <!-- 更多项目 -->
-        </div>
-        </div>
-        ```"""
+### 内容限制
+- 章节数: 3-8个
+- 章节名: 4-8字"""
 
     def _get_content_prompt(self) -> str:
-        """内容页专用提示词"""
-        return """## 📄 内容页设计指南
+        """内容页专用提示词 - 简化版"""
+        return """## 📄 内容页设计要点
 
-        ### 设计目标
-        - **价值传达**：不只是展示数据，要传达数据背后的价值和洞察
-        - **逻辑严密**：构建"数据→分析→结论"的完整推理链
-        - **深度分析**：揭示趋势、对比、因果关系，而非简单罗列
-        - **认知友好**：结构化表达，易于理解和记忆
+### 页面密度控制（关键）
+**单页限制**：
+- 标题区: 120px
+- 内容区: 800px（可用高度）
+- 页码区: 160px
 
-        ### 布局原则
-        #### 1. 单栏布局（默认推荐）
-        ```
-        ┌─────────────────────┐
-        │      标题区域        │ ← 120px
-        ├─────────────────────┤
-        │                     │
-        │                     │
-        │      内容区域        │ ← 800px
-        │                     │
-        │                     │
-        ├─────────────────────┤
-        │      页码区域        │ ← 160px
-        └─────────────────────┘
-        ```
+**内容控制**：
+- 核心要点: 4-6个
+- 总文字: ≤200字
+- 图表数: ≤1个（高度≤400px）
+- 列表项: ≤6项
 
-        #### 2. 左右分栏（适合对比场景）
-        ```
-        标题
-        ━━━━━━━━━━━━━
-        左栏内容  │  右栏内容
-                │
-        ```
+### 内容结构（5层递进）
+```
+层1【结论小标题】
+层2 • 核心数据（具体数字）
+层3 • 趋势分析（环比/同比）
+层4 • 价值说明（业务意义）
+层5 • 问题或建议（可选）
+```
 
-        ### 内容元素类型
-        #### A. 文本段落
-        - 使用合适的标题层级（h1-h2）
-        - 段落不超过3-4行
-        - 关键词可以加粗或变色
+### 常见页面类型
+1. **成果页**: 数据+对比+价值
+2. **分析页**: 数据+趋势+根因
+3. **问题页**: 现状+根因+影响
+4. **方法页**: 做法+原理+效果
+5. **计划页**: 措施+时间+预期
 
-        #### B. 列表要点
-        - 每页不超过6个要点
-        - 使用icon或符号引导
-        - 要点间距要充分
+### HTML结构示例
+```html
+<div class="content-section">
+  <h1>标题</h1>
+  <h3>小标题（结论）</h3>
+  <p>• 数据 + 分析 + 价值</p>
+  <p>• 数据 + 分析 + 价值</p>
+  ...（4-6个要点）
+</div>
+```
 
-        #### C. 数据卡片
-        - 突出显示关键数字
-        - 配上简短说明
-        - 使用边框或背景区分
-
-        #### D. 引用/强调
-        - 使用引用样式突出重要信息
-        - 配色要醒目但不刺眼
-        - 位置要合理
-
-        ### 信息密度控制
-        - ⭐ 每页1-2个核心观点（但每个观点要有深度分析）
-        - ⭐ 文字总量不超过200字（增加分析内容）
-        - ⭐ 要点不超过6个（每个要点包含数据+洞察）
-        - ⭐ 数据不超过8组（优选最能说明问题的数据）
-        - ⭐ 内容区最多只有一个图表
-
-        ### 内容深度要求（⚠️ 关键）
-        每个内容页都应该包含以下层次：
-        
-        **第一层：结论先行**
-        - 用小标题直接给出结论或核心发现
-        - 例如："安全监测效能显著提升" 而非 "安全监测情况"
-        
-        **第二层：数据支撑**
-        - 列出关键数据和指标
-        - 包含具体数字、百分比、对比值
-        
-        **第三层：深度分析**
-        - 趋势分析：数据如何变化？为什么？
-        - 对比分析：与目标/历史/行业的对比如何？
-        - 因果分析：什么原因导致这样的结果？
-        
-        **第四层：价值体现**
-        - 这说明了什么？
-        - 带来了什么业务价值？
-        - 体现了什么能力建设成果？
-        
-        **第五层：问题与建议（视情况）**
-        - 客观指出存在的不足或风险
-        - 给出改进建议或下一步行动
-
-        ### 视觉层次
-        ```
-        第一层: 页面标题 - 最大、最醒目，点明主题
-        第二层: 小标题（h3）- 结论性表述，带价值判断
-        第三层: 数据和要点 - 核心信息，结构化呈现
-        第四层: 分析说明 - 解读和洞察，较小字号
-        第五层: 注释/来源 - 补充信息
-        ```
-
-        ### 示例结构
-        ```html
-        <div class="content-slide">
-        <div class="title-area">
-            <h1>页面标题</h1>
-            <div class="divider"></div>
-            <h2>副标题（可选）</h2>
-        </div>
-        
-        <div class="content-area">
-            <div class="data-card">
-            <h3>小标题</h3>
-            <p>内容文字</p>
-            </div>
-            
-            <div class="bullet-list">
-            <div class="bullet-point">
-                <span class="icon">●</span>
-                <span class="text">要点一</span>
-            </div>
-            <!-- 更多要点 -->
-            </div>
-        </div>
-        </div>
-        ```
-
-        ### 常见内容类型及深度要求
-        1. **成果展示页**
-           - 不只列数字，要说明成果的价值和意义
-           - 包含对比（与目标、与过去、与行业）
-           - 突出亮点和突破
-        
-        2. **数据分析页**
-           - 不只罗列数据，要揭示趋势和规律
-           - 说明数据变化的原因
-           - 给出数据驱动的结论
-        
-        3. **问题分析页**
-           - 客观陈述问题现状（用数据说话）
-           - 分析问题根因（不只是表象）
-           - 评估问题影响和风险
-        
-        4. **方法介绍页**
-           - 不只描述做了什么，要说明为什么这么做
-           - 体现方法论和体系化思维
-           - 说明方法的效果和价值
-        
-        5. **计划建议页**
-           - 给出具体可执行的措施
-           - 说明预期效果和时间表
-           - 与前面的问题分析形成呼应
-        
-        ### 质量标准检查清单
-        ✅ 每页有明确的核心结论（不是泛泛的标题）
-        ✅ 数据后面有分析和洞察（不只是罗列）
-        ✅ 逻辑链条完整（数据→分析→结论）
-        ✅ 有价值判断和意义说明（说明"所以呢？"）
-        ✅ 语言精准具体（用数字而非"较好""很多"）"""
+### 质量检查
+✅ 结论明确
+✅ 数据有分析
+✅ 逻辑完整
+✅ 内容适量（不超页）"""
 
     def _get_system_prompt_bak(self, template_type: str) -> str:
         """获取智能化的系统提示词 - 平衡创造力与一致性"""
@@ -840,6 +597,54 @@ class SlideGeneratorTool:
         
         return f"{role_definitions.get(template_type, role_definitions['content'])}\n{design_principles}{toc_instruction}"
 
+    def _control_content_density(
+        self,
+        page_info: Dict[str, Any],
+        extracted_data: Dict[str, Any],
+        template_type: str
+    ) -> Dict[str, Any]:
+        """
+        内容密度控制 - 根据模板类型限制数据量
+        
+        目的：防止生成过多内容导致单页无法完整展示
+        """
+        controlled_data = extracted_data.copy()
+        
+        # 根据模板类型设置数据上限
+        data_limits = {
+            "cover": {"key_data": 0, "detailed_content": 0},  # 封面页不需要详细数据
+            "toc": {"key_data": 0, "detailed_content": 0},     # 目录页不需要详细数据
+            "content": {"key_data": 6, "detailed_content": 4}, # 内容页限制数据
+            "chart": {"key_data": 8, "detailed_content": 2},   # 图表页留空间给图表
+            "summary": {"key_data": 4, "detailed_content": 3}, # 总结页精简
+            "thanks": {"key_data": 0, "detailed_content": 0}   # 致谢页不需要详细数据
+        }
+        
+        limits = data_limits.get(template_type, {"key_data": 6, "detailed_content": 4})
+        
+        # 限制key_data数量
+        if "key_data" in controlled_data and isinstance(controlled_data["key_data"], dict):
+            key_data = controlled_data["key_data"]
+            if len(key_data) > limits["key_data"]:
+                # 只保留前N项
+                controlled_data["key_data"] = dict(list(key_data.items())[:limits["key_data"]])
+                logger.info(
+                    f"Limited key_data from {len(key_data)} to {limits['key_data']} items",
+                    agent_name="SlideGenerator"
+                )
+        
+        # 限制detailed_content数量
+        if "detailed_content" in controlled_data and isinstance(controlled_data["detailed_content"], dict):
+            detailed = controlled_data["detailed_content"]
+            if len(detailed) > limits["detailed_content"]:
+                controlled_data["detailed_content"] = dict(list(detailed.items())[:limits["detailed_content"]])
+                logger.info(
+                    f"Limited detailed_content from {len(detailed)} to {limits['detailed_content']} items",
+                    agent_name="SlideGenerator"
+                )
+        
+        return controlled_data
+
     def _extract_relevant_descriptions(
         self,
         data_requirements: list,
@@ -849,10 +654,10 @@ class SlideGeneratorTool:
         if not detailed_content:
             return {}
 
-        # 如果没有 data_requirements，返回所有 detailed_content
+        # 如果没有 data_requirements，返回前5项（限制数量）
         if not data_requirements:
-            logger.info("No data_requirements, returning all detailed_content", agent_name="SlideGenerator")
-            return detailed_content
+            logger.info("No data_requirements, returning limited detailed_content", agent_name="SlideGenerator")
+            return dict(list(detailed_content.items())[:5])
 
         relevant = {}
 
@@ -884,13 +689,18 @@ class SlideGeneratorTool:
 
         search_nested_dict(detailed_content)
 
-        # 如果没有匹配到任何内容，返回所有 detailed_content 作为兜底
+        # 如果没有匹配到任何内容，返回前5项作为兜底
         if not relevant:
             logger.warning(
-                f"No descriptions matched for requirements: {data_requirements}, returning all detailed_content",
+                f"No descriptions matched for requirements: {data_requirements}, returning limited detailed_content",
                 agent_name="SlideGenerator"
             )
-            return detailed_content
+            return dict(list(detailed_content.items())[:5])
+
+        # 即使匹配到了，也要限制数量，最多返回8项
+        if len(relevant) > 8:
+            relevant = dict(list(relevant.items())[:8])
+            logger.info(f"Limited relevant descriptions to 8 items", agent_name="SlideGenerator")
 
         return relevant
 
@@ -990,7 +800,7 @@ class SlideGeneratorTool:
         return html_content
 
     def _load_base_template(self) -> str:
-        """加载基础模板 - 使用本地资源"""
+        """加载基础模板 - 使用本地资源，优化内容显示"""
         return """<!DOCTYPE html>
 <html lang="zh-CN">
 <head>
@@ -1003,30 +813,51 @@ class SlideGeneratorTool:
   /* 基础样式定义 - 必须遵守 */
   * { margin: 0; padding: 0; box-sizing: border-box; }
   body, html { margin: 0; padding: 0; width: 1920px; height: 1080px; overflow: hidden; }
-  .slide-container { width: 1920px; height: 1080px; background-color: white; position: relative; overflow: hidden; display: flex; flex-direction: column; }
-  .content-section { flex: 1; padding: 40px 80px 60px 80px; display: flex; flex-direction: column; overflow: hidden; }
-  .page-number { position: absolute; bottom: 30px; right: 50px; font-size: 14px; color: #666; }
+  .slide-container { width: 1920px; height: 1080px; background-color: white; position: relative; display: flex; flex-direction: column; overflow: hidden; }
+  .content-section { 
+    flex: 1; 
+    padding: 40px 80px 60px 80px; 
+    display: flex; 
+    flex-direction: column;
+    max-height: calc(1080px - 10px - 60px);  /* 减去顶部条和底部空间 */
+    overflow: hidden;  /* 防止内容溢出 */
+  }
+  .page-number { position: absolute; bottom: 30px; right: 50px; font-size: 14px; color: #666; z-index: 100; }
   .primary-color { color: rgb(10, 66, 117); }
   .primary-bg { background-color: rgb(10, 66, 117); }
-  .top-bar { height: 10px; width: 100%; background-color: rgb(10, 66, 117); }
-  h1 { font-size: 48px; font-weight: 700; color: rgb(10, 66, 117); margin-bottom: 20px; }
-  h2 { font-size: 36px; font-weight: 600; color: rgb(10, 66, 117); margin-bottom: 15px; }
-  p { font-size: 25px; color: #333; line-height: 1.6; }
-  .data-card { border-left: 4px solid rgb(10, 66, 117); padding: 15px 20px; background-color: rgba(10, 66, 117, 0.03); border-radius: 8px; margin-bottom: 20px; }
-  .stat-card { background-color: rgba(10, 66, 117, 0.08); border-radius: 8px; padding: 15px 20px; border-left: 4px solid rgb(10, 66, 117); margin-bottom: 20px; }
-  .bullet-point { display: flex; align-items: center; margin-bottom: 8px; font-size: 25px; }
-  .bullet-icon { color: rgb(10, 66, 117); margin-right: 10px; min-width: 20px; }
-  .toc-item { display: flex; align-items: center; margin-bottom: 18px; font-size: 28px; color: #333; }
+  .top-bar { height: 10px; width: 100%; background-color: rgb(10, 66, 117); flex-shrink: 0; }
+  h1 { font-size: 48px; font-weight: 700; color: rgb(10, 66, 117); margin-bottom: 16px; line-height: 1.2; }
+  h2 { font-size: 36px; font-weight: 600; color: rgb(10, 66, 117); margin-bottom: 12px; line-height: 1.3; }
+  h3 { font-size: 28px; font-weight: 600; color: rgb(10, 66, 117); margin-bottom: 12px; line-height: 1.3; }
+  p { font-size: 22px; color: #333; line-height: 1.5; margin-bottom: 10px; }
+  .data-card { 
+    border-left: 4px solid rgb(10, 66, 117); 
+    padding: 12px 16px; 
+    background-color: rgba(10, 66, 117, 0.03); 
+    border-radius: 6px; 
+    margin-bottom: 14px; 
+  }
+  .stat-card { 
+    background-color: rgba(10, 66, 117, 0.08); 
+    border-radius: 6px; 
+    padding: 12px 16px; 
+    border-left: 4px solid rgb(10, 66, 117); 
+    margin-bottom: 14px; 
+  }
+  .bullet-point { display: flex; align-items: flex-start; margin-bottom: 8px; font-size: 22px; line-height: 1.5; }
+  .bullet-icon { color: rgb(10, 66, 117); margin-right: 10px; min-width: 20px; margin-top: 2px; }
+  .toc-item { display: flex; align-items: center; margin-bottom: 16px; font-size: 28px; color: #333; }
   .toc-number { color: rgb(10, 66, 117); font-weight: 600; margin-right: 15px; min-width: 40px; }
   .toc-title { flex: 1; }
   
-  /* 图表容器优化 - 自适应高度，避免内容重叠 */
-  .chart-container { margin-bottom: 20px; position: relative; }
-  .chart-container h3 { font-size: 28px; color: rgb(10, 66, 117); margin-bottom: 10px; }
+  /* 图表容器优化 */
+  .chart-container { margin-bottom: 16px; position: relative; max-height: 400px; }
+  .chart-container h3 { font-size: 28px; color: rgb(10, 66, 117); margin-bottom: 8px; }
   
-  /* 内容区域优化 - 允许滚动以容纳所有内容 */
-  .content-section { flex: 1; padding: 40px 80px 60px 80px; display: flex; flex-direction: column; overflow-y: auto; overflow-x: hidden; }
-  .content-section > div:last-of-type { padding-bottom: 20px; }
+  /* 内容区域优化 - 确保不会溢出 */
+  .content-section > * { flex-shrink: 0; }
+  .mb-4 { margin-bottom: 16px; }
+  .mb-6 { margin-bottom: 20px; }
 </style>
 </head>
 <body>
@@ -1034,14 +865,14 @@ class SlideGeneratorTool:
   <div class="top-bar"></div>
   <div class="content-section">
     <!-- 标题区域 -->
-    <div class="mb-6">
+    <div class="mb-4">
       <h1>标题占位</h1>
       <h2 class="text-gray-600">副标题占位，可选</h2>
       <div class="w-20 h-1 primary-bg"></div>
     </div>
 
     <!-- 内容区域：正文使用p标签，单栏布局 -->
-    <div class="flex-1 overflow-hidden">
+    <div>
       <p>内容占位</p>
     </div>
   </div>
@@ -1054,23 +885,30 @@ class SlideGeneratorTool:
         """加载模板约束"""
         return """### 核心硬性约束:
 1. **页面尺寸**: 必须固定为1920x1080像素
-2. **样式保持**: 所有CSS样式、颜色、字体大小必须与模板一致
-3. **内容替换**: 只允许替换内容部分(标题、段落、列表等)
+2. **内容区高度**: 最多1010px（1080-10顶部-60底部）
+3. **样式保持**: 所有CSS样式、颜色、字体大小必须与模板一致
 4. **页码格式**: <div class="page-number">X</div>必须保留
-5. **布局结构**: 单栏布局,垂直方向固定为三个区域(顶部条、内容区、页码)
-6. **文字规范**: 正文字号不小于25px,图表标签不小于14px
+5. **布局结构**: 单栏布局,垂直方向为：顶部条+内容区+页码
+6. **字体规范**: 标题48px, 副标题28-36px, 正文22px, 最小14px
 
-### 内容精简原则:
-1. 每页最多4-6个核心要点
-2. 数据项超过8个时,只选择最重要的展示
-3. 每个图表容器最大高度250px
-4. 列表最多6个项目
+### 内容密度控制（关键）:
+1. **核心要点**: 每页最多4-6个
+2. **总文字量**: 正文不超过200字
+3. **数据项**: 不超过8个关键数据
+4. **图表**: 最多1-2个，单个高度≤400px
+5. **列表项**: 最多6个
+
+### 高度预估（确保不超页）:
+- 标题区: 约120px (h1+h2+分隔线)
+- 每个要点: 约60-80px
+- 每个图表: 指定高度+标题(约420px)
+- 安全边距: 留60px底部空间
 
 ### 禁止事项:
-1. 禁止使用自定义类名的span标签
-2. 禁止垂直堆叠超过3个大型图表
+1. 禁止内容超出内容区高度
+2. 禁止多列布局
 3. 禁止使用小于14px的字体
-4. 禁止内容溢出容器"""
+4. 禁止堆叠过多元素"""
 
     def _get_default_slide(self, page_info: Dict[str, Any]) -> Dict[str, Any]:
         """返回默认幻灯片"""
