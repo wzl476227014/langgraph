@@ -91,12 +91,12 @@ class SlideGeneratorTool:
 
             logger.info(f"generation_prompt length: {len(generation_prompt)} chars", agent_name="SlideGenerator")
 
-            # 调用LLM生成HTML，降低温度以提高稳定性
+            # 调用LLM生成HTML - 优化参数以提高质量和稳定性
             html_result = generate_system_response(
                 system_prompt=self._get_system_prompt(template_type),
                 user_message=generation_prompt,
-                temperature=0.7,  # 降低温度，提高一致性
-                max_tokens=8000
+                temperature=0.5,  # 降低温度到0.5，提高一致性和质量
+                max_tokens=10000  # 增加token限制，确保完整输出
             )
 
             # 提取HTML内容
@@ -245,71 +245,63 @@ class SlideGeneratorTool:
             chart_guidance = self._get_chart_placeholder_guidance()
 
         prompt = f"""
-# 生成任务
-为第{page_num}页生成完整的HTML幻灯片内容。
+# 任务：生成第{page_num}页HTML幻灯片
 
-## 页面基本信息
-- **页码**: {page_num}
-- **标题**: {title}
-- **副标题**: {subtitle}
-- **内容简述**: {content_brief}
-- **模板类型**: {template_type}
-- **数据需求**: {json.dumps(data_requirements, ensure_ascii=False)}
+## 基本信息
+- 页码：{page_num}
+- 标题：{title}
+- 副标题：{subtitle}
+- 简述：{content_brief}
+- 模板：{template_type}
 
-## 可用数据源
+## 可用数据
+
 ### 描述性内容
-{json.dumps(relevant_descriptions, ensure_ascii=False, indent=2) if relevant_descriptions else "无"}
+{json.dumps(relevant_descriptions, ensure_ascii=False, indent=2) if relevant_descriptions else "无可用描述性内容"}
 
 ### 统计数据
-{json.dumps(relevant_statistics, ensure_ascii=False, indent=2) if relevant_statistics else "无"}
-{chart_analysis}
+{json.dumps(relevant_statistics, ensure_ascii=False, indent=2) if relevant_statistics else "无可用统计数据"}
 {chart_guidance}
 {user_requirements_section}
 {reference_template_section}
 {base_template_section}
 
-## 内容生成指南
+## 生成要求
 
-### ⚠️ 关键要求：页面密度控制
-**必须确保所有内容在单页内完整展示，不被截断！**
+### 核心约束（必须遵守）
+1. **页面密度**：内容必须在单页内完整展示（1920x1080px）
+   - 要点数：4-6个
+   - 文字量：150-200字
+   - 图表：0-1个（高≤400px）
 
-**控制方法**：
-1. **精选数据**：从上述数据源中选择最重要的4-6个要点
-2. **精简文字**：正文总字数控制在150-200字以内
-3. **控制图表**：最多1-2个图表，单个图表高度不超过400px
-4. **合理间距**：元素间距适中，避免过于紧凑或过于松散
+2. **内容质量**：每个要点包含
+   - 结论性小标题
+   - 具体数据（精确数字）
+   - 趋势分析（环比/同比）
+   - 价值说明（业务意义）
 
-### 内容深度要求
-每个要点的标准结构：
+3. **技术规范**
+   - 完整HTML结构（DOCTYPE, html, head, body）
+   - 单栏垂直布局
+   - 使用模板CSS类（.data-card, .bullet-point）
+   - 主色rgb(10,66,117)
+   - 固定尺寸1920x1080px
+
+### 内容示例
 ```
-【小标题：结论性表述】
-• 核心数据 + 趋势分析
-• 对比说明 + 价值体现
-• （可选）问题或改进方向
+【监控效能持续提升】
+• 日均处理日志589万条，同比增长35%
+• 告警准确率85%，较上月提升20个百分点
+• 误报下降显著，节省人工筛查时间40%
+• 体现监控系统优化成效显著
 ```
 
-**示例**：
-```
-【监测效能大幅提升】
-• 日志589万条，告警6.7万条，有效率85%（↑20%）
-• 误报率下降，节省40%人工时间
-• 体现监测能力持续优化
-```
+### 数据选择原则
+- 从上述数据中选择最关键的4-6项
+- 优先选择有对比、有趋势、有价值的数据
+- 每个数据都要配上分析说明
 
-### 数据处理原则
-- **优先级筛选**：数据>8个时，只展示最关键的
-- **趋势对比**：每个数据配上环比/同比或目标对比
-- **价值说明**：每组数据说明其业务意义
-- **客观诚实**：成果与不足都要体现
-
-### 技术要求
-- **HTML完整性**：必须包含<!DOCTYPE html>, <html>, <head>, <body>等完整结构
-- **单栏布局**：严格垂直单栏，禁止多列grid布局
-- **图表占位符**：使用<!-- CHART_PLACEHOLDER: {{...}} -->格式
-- **固定尺寸**：1920x1080px
-- **主色调**：rgb(10,66,117)
-
-请直接输出完整的HTML代码，不要添加任何解释：
+⚠️ 重要：直接输出完整HTML代码，不要markdown标记或额外说明
 """
         return prompt
 
@@ -322,49 +314,40 @@ class SlideGeneratorTool:
     
 
     def _get_base_system_prompt(self) -> str:
-        """获取基础系统提示词 - 聚焦角色定位和核心原则"""
-        return """# 角色定位
-你是一位资深的商业分析师 + PPT设计专家，擅长：
-1. **深度分析**：从数据中提炼洞察，构建"数据→分析→结论"的逻辑链
-2. **价值表达**：将原始信息转化为对决策有价值的结论和建议
-3. **内容设计**：创建专业、清晰、有说服力的商业演示内容
-4. **页面控制**：精确控制每页内容密度，确保在单页内完整展示
+        """获取基础系统提示词 - 精简版，聚焦核心要求"""
+        return """# 角色
+你是专业的商业PPT内容专家，专注于生成高质量、专业的幻灯片内容。
 
-## 核心设计原则
-### 内容原则（最重要 - 60%权重）
-- **价值优先**：揭示数据的意义和价值，而非简单罗列
-- **深度分析**：包含趋势、对比、因果关系，有推理过程
-- **逻辑严密**：观点有数据支撑，结论有依据
-- **语言精准**：用具体数字，避免模糊表达
-- **诚实客观**：既展示成果，也客观指出不足
+# 核心要求（按优先级）
 
-### 页面密度控制（关键）
-- **单页限制**：所有内容必须在1920x1080px单页内完整展示
-- **信息精简**：每页最多4-6个核心要点
-- **数据筛选**：当数据项超过8个时，只选择最重要的展示
-- **图表限制**：每页最多1-2个图表，总高度不超过700px
-- **文字控制**：正文总字数不超过200字
+## 1. 内容质量（最重要）
+- 数据驱动：每个观点必须有具体数据支撑
+- 深度分析：不仅展示数据，更要分析趋势、对比和价值
+- 逻辑清晰：结论→数据→分析的完整链条
+- 语言专业：使用精确数字和专业术语
 
-### 视觉与技术规范（40%权重）
-**尺寸**: 1920x1080px固定
-**字体**: 标题48px, 副标题28-36px, 正文20-24px, 最小14px
-**颜色**: 主色rgb(10,66,117)
-**布局**: 单栏垂直布局，禁止多列
-**间距**: 元素间距16px+, 段落间距20px+
+## 2. 页面密度（关键）
+⚠️ 必须确保内容在单页完整展示（1920x1080px）
+- 核心要点：4-6个（最多）
+- 正文字数：150-200字以内
+- 图表数量：最多1-2个
+- 数据项：选择最重要的6-8项展示
 
-## 质量检查清单
-✅ 每页有明确的核心结论
-✅ 数据后有分析和洞察
-✅ 逻辑链条完整
-✅ 语言精准具体
-✅ **内容不超出单页范围**（关键）
+## 3. 技术规范
+- 尺寸：1920x1080px
+- 布局：单栏垂直，三段式（顶栏+内容+页码）
+- 字体：h1=48px, h2/h3=28-36px, p=20-24px
+- 主色：rgb(10,66,117)
+- 结构：使用模板中的CSS类（.data-card, .bullet-point等）
 
-## 禁止事项
-❌ 只罗列数据，不做分析
-❌ 笼统描述，缺少依据
-❌ 缺少对比和趋势
-❌ 内容过载导致超出单页
-❌ 多列布局或复杂嵌套"""
+## 4. 质量标准
+✅ 有明确结论
+✅ 数据完整准确
+✅ 分析深入到位
+✅ 布局清晰合理
+✅ 内容适量不超页
+
+❌ 避免：数据堆砌、内容过载、多列布局、缺少分析"""
 
     def _get_template_specific_prompt(self, template_type: str) -> str:
         """获取特定模板类型的提示词"""
@@ -435,53 +418,38 @@ class SlideGeneratorTool:
 - 章节名: 4-8字"""
 
     def _get_content_prompt(self) -> str:
-        """内容页专用提示词 - 简化版"""
-        return """## 📄 内容页设计要点
+        """内容页专用提示词 - 优化版"""
+        return """## 📄 内容页要点
 
-### 页面密度控制（关键）
-**单页限制**：
-- 标题区: 120px
-- 内容区: 800px（可用高度）
-- 页码区: 160px
+### 密度控制
+- 要点数：4-6个
+- 文字量：150-200字
+- 图表：0-1个（高≤400px）
+- 高度：内容区≤900px
 
-**内容控制**：
-- 核心要点: 4-6个
-- 总文字: ≤200字
-- 图表数: ≤1个（高度≤400px）
-- 列表项: ≤6项
+### 内容结构
+每个要点应包含：
+1. 结论性小标题
+2. 核心数据（具体数字）
+3. 趋势分析（环比/同比/对比）
+4. 价值说明（业务意义）
 
-### 内容结构（5层递进）
+### 示例
 ```
-层1【结论小标题】
-层2 • 核心数据（具体数字）
-层3 • 趋势分析（环比/同比）
-层4 • 价值说明（业务意义）
-层5 • 问题或建议（可选）
-```
-
-### 常见页面类型
-1. **成果页**: 数据+对比+价值
-2. **分析页**: 数据+趋势+根因
-3. **问题页**: 现状+根因+影响
-4. **方法页**: 做法+原理+效果
-5. **计划页**: 措施+时间+预期
-
-### HTML结构示例
-```html
-<div class="content-section">
-  <h1>标题</h1>
-  <h3>小标题（结论）</h3>
-  <p>• 数据 + 分析 + 价值</p>
-  <p>• 数据 + 分析 + 价值</p>
-  ...（4-6个要点）
-</div>
+【监控能力显著提升】
+• 日均处理日志589万条，同比增长35%
+• 告警精准率85%，较上月提升20%
+• 有效节省40%人工筛查时间
+• 反映监控系统持续优化见效
 ```
 
-### 质量检查
-✅ 结论明确
-✅ 数据有分析
-✅ 逻辑完整
-✅ 内容适量（不超页）"""
+### 技术要求
+- 使用.data-card或.bullet-point类
+- h1标题 + h3小标题 + p正文
+- 单栏垂直布局
+- 保持主色调rgb(10,66,117)
+
+✅ 确保：结论清晰、数据准确、分析到位、不超页"""
 
     def _get_system_prompt_bak(self, template_type: str) -> str:
         """获取智能化的系统提示词 - 平衡创造力与一致性"""
@@ -947,137 +915,84 @@ class SlideGeneratorTool:
         }
 
     def _get_chart_placeholder_guidance(self) -> str:
-        """获取图表占位符使用指导"""
+        """获取图表占位符使用指导 - 精简版"""
         return """
 
-# 📊 图表占位符使用指南
+# 📊 图表生成指南
 
-## 重要说明
-⚠️ **请勿手动编写SVG或图表HTML代码！** 使用图表占位符，系统会自动生成专业的ECharts图表。
+⚠️ **重要**：使用图表占位符，系统自动生成专业ECharts图表，禁止手写SVG！
 
 ## 占位符格式
 ```html
-<!-- CHART_PLACEHOLDER: {"chart_type": "类型", "title": "标题", "data": {...}, "height": 高度, "options": {...}} -->
+<!-- CHART_PLACEHOLDER: {"chart_type": "类型", "title": "标题", "height": 高度, "data": {...}} -->
 ```
 
-## 支持的图表类型
+## 常用图表类型
 
-### 1. 柱状图 (bar)
+### 柱状图 (bar) - 用于对比
 ```html
 <!-- CHART_PLACEHOLDER: {
   "chart_type": "bar",
-  "title": "销售额对比",
+  "title": "季度销售对比",
   "height": 400,
   "data": {
     "labels": ["Q1", "Q2", "Q3", "Q4"],
-    "series": [
-      {"name": "2023年", "data": [120, 150, 180, 200]},
-      {"name": "2024年", "data": [150, 180, 220, 250]}
-    ]
+    "series": [{"name": "销售额", "data": [120, 150, 180, 200]}]
   },
-  "options": {
-    "show_legend": true,
-    "legend_position": "top",
-    "show_data_labels": true,
-    "y_axis_name": "销售额",
-    "unit": "万元"
-  }
+  "options": {"y_axis_name": "销售额", "unit": "万元"}
 } -->
 ```
 
-### 2. 饼图 (pie)
+### 饼图 (pie) - 用于占比
 ```html
 <!-- CHART_PLACEHOLDER: {
   "chart_type": "pie",
-  "title": "市场份额分布",
+  "title": "市场份额",
   "height": 350,
   "data": {
-    "labels": ["产品A", "产品B", "产品C", "产品D"],
-    "series": [
-      {"name": "市场份额", "data": [35, 28, 22, 15]}
-    ]
-  },
-  "options": {
-    "show_legend": true,
-    "show_data_labels": true
+    "labels": ["产品A", "产品B", "产品C"],
+    "series": [{"name": "份额", "data": [35, 28, 22]}]
   }
 } -->
 ```
 
-### 3. 折线图 (line)
+### 折线图 (line) - 用于趋势
 ```html
 <!-- CHART_PLACEHOLDER: {
   "chart_type": "line",
   "title": "增长趋势",
   "height": 400,
   "data": {
-    "labels": ["1月", "2月", "3月", "4月", "5月", "6月"],
-    "series": [
-      {"name": "用户数", "data": [100, 120, 150, 180, 220, 250]}
-    ]
-  },
-  "options": {
-    "show_legend": true,
-    "y_axis_name": "用户数",
-    "unit": "万"
+    "labels": ["1月", "2月", "3月", "4月", "5月"],
+    "series": [{"name": "用户数", "data": [100, 120, 150, 180, 220]}]
   }
 } -->
 ```
 
-### 4. 仪表盘 (gauge)
+### 仪表盘 (gauge) - 用于单一指标
 ```html
 <!-- CHART_PLACEHOLDER: {
   "chart_type": "gauge",
   "title": "完成率",
   "height": 350,
-  "data": {
-    "value": 75,
-    "max_value": 100
-  },
-  "options": {
-    "unit": "%"
-  }
+  "data": {"value": 75, "max_value": 100},
+  "options": {"unit": "%"}
 } -->
 ```
 
-### 5. 表格 (table)
-```html
-<!-- CHART_PLACEHOLDER: {
-  "chart_type": "table",
-  "title": "关键指标汇总",
-  "height": 300,
-  "data": {
-    "table_headers": ["指标", "2023年", "2024年", "增长率"],
-    "table_rows": [
-      {"指标": "收入", "2023年": "100万", "2024年": "150万", "增长率": "+50%"},
-      {"指标": "用户", "2023年": "1000", "2024年": "1500", "增长率": "+50%"}
-    ]
-  }
-} -->
-```
+## 关键要求
+1. 数据必须与原始数据100%一致
+2. 每页最多1-2个图表
+3. 图表高度：350-400px
+4. 在合适位置插入占位符注释
 
-## 使用建议
-1. **数据准确性**: 确保data中的数值与原始数据完全一致
-2. **标题清晰**: title应简洁明了地描述图表内容
-3. **高度合理**: 根据内容选择合适的高度（350-400px）
-4. **每页限制**: 每页最多放置1-2个图表
-5. **占位符位置**: 在需要显示图表的位置插入占位符即可
-
-## 示例页面结构
+## 示例结构
 ```html
 <div class="content-section">
-  <div class="mb-6">
-    <h1>销售数据分析</h1>
-  </div>
-  
-  <div class="flex-1">
-    <p style="font-size: 22px; margin-bottom: 20px;">2024年销售业绩持续增长，各季度表现优异。</p>
-    
-    <!-- 插入柱状图 -->
-    <!-- CHART_PLACEHOLDER: {"chart_type": "bar", ...} -->
-    
-    <p style="font-size: 20px; margin-top: 20px;">关键发现：Q4销售额突破250万，同比增长25%。</p>
-  </div>
+  <h1>数据分析</h1>
+  <p>核心观点...</p>
+  <!-- CHART_PLACEHOLDER: {...} -->
+  <p>结论说明...</p>
 </div>
 ```
 """
